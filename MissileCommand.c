@@ -27,8 +27,12 @@ int abs_diff(int first, int second);
 
 int main(void)
 {
+    //Pointers to various control registers for the De1-SoC Board.
     volatile int * pixel_ctrl_ptr = (int *)0xFF203020;
-    volatile int pixel_buffer_address; 
+    volatile int * ps2_ctrl_ptr = (int *)0xFF200100;
+    volatile int * led_ctrl_ptr = (int *)0xFF200000;
+
+    
 
     //First, the Pixel Control Register pixel buffers are configured.
 
@@ -45,7 +49,7 @@ int main(void)
     //Now, the front and back pixel buffers are cleared for later drawing.
 
     //pixel_buffer_address points to the front pixel buffer.
-    pixel_buffer_address = *pixel_ctrl_ptr; 
+    volatile int pixel_buffer_address = *pixel_ctrl_ptr; 
 	clear_screen(pixel_buffer_address); 
     
     //Set pixel_buffer_address to the back buffer, which will be drawed on.
@@ -56,6 +60,9 @@ int main(void)
     //The main loop of the program.
     while (1)
     {
+        //Poll keyboard input.
+        
+
         
 
 
