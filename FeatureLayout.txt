@@ -1,0 +1,40 @@
+____________Graphics_____________
+--------Main Player----------
+- Start with one main one (center); could add 2 more on left and right if time
+- Fires bullets/missiles
+- WASD to move cursor on scree? or mouse.
+- Spacebar to fire missile
+
+------------Enemies and Missiles----------
+- Enemies - random chance of spawning?
+- Missiles - Randomize - see below
+- Graphics: random coloured growing circles/"explosions"
+
+----------Missile Animation------
+- Random velocities - maybe slower velocities for earlier/easier Rounds
+- Maybe aim these velocities such that they will hit the player/come close to hitting the player
+- Can use equation of a line (be aware that +y is down, -y is up. screen limits...etc...)
+
+
+____________Gameplay Logic____________
+- Generate random missiles with random velocities/locations at top of screen, in general direction of player
+- If hit player, you're "OUT"
+
+--------Collision Detection------
+- Need to "draw" hitboxes around the player and missile. (track location of missiles as they move)
+- Be checking for collions constantly - or as often as possible?
+
+--------------Rounds----------------
+- Certain number of missiles fired at the player per round? Or timed rounds?
+
+--------Scoring System and Reset-----
+- Increment score when hit an enemy
+
+
+___________Audio______________
+
+---------Sound Effects-----------
+- On Collision
+- Start, Next round, Game Over
+
+
