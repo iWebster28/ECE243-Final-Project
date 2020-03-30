@@ -20,13 +20,8 @@ struct Cursor
 	int x;  
     int y;
 
-    //The old coordinates of the centre of the cursor.
-    int xOld1, yOld1;           //The position of the cursor on the previous frame.
-    int xOld2, yOld2;           //The position of the cursor 2 frames ago. This is needed
-                                //because of frame buffering. When the current buffer is
-                                //cleared, you are clearing what happened 2 frames ago.
-
-
+    //The old coordinates of the centre of the cursor, from the previous frame.
+    int xOld, yOld;
 	
 	//The direction the cursor is moving.
 	int deltax;
@@ -118,6 +113,8 @@ int main(void)
     while (1)
     {
         //Clear previous graphics.
+
+        //Erase the cursor from the previous frame.
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
         //Poll keyboard input.
@@ -219,16 +216,17 @@ void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address)
 //Erases the old cursor from the previous frame.
 void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address)
 {
-    //To erase the old cursor, draw over its position 2 frames ago with black.
-    //Must undo the content from 2 frames ago because of frame buffering.
+    //To erase the old cursor, draw over its previous position with black.
+    //Do not need to erase its current position due to frame buffering, as this
+    //will be erased the next frame cycle (it becomes the new "current position").
 
     //Erase the horizontal part of the old cursor.
-    draw_line(screenCursor.xOld2 - 2, screenCursor.yOld2, screenCursor.xOld2 + 2, 
-                screenCursor.yOld2, 0, pixel_buffer_address);
+    draw_line(screenCursor.xOld - 2, screenCursor.yOld, screenCursor.xOld + 2, 
+                screenCursor.yOld, 0, pixel_buffer_address);
 
     //Erase the vertical part of the old cursor.
-    draw_line(screenCursor.xOld2, screenCursor.yOld2 - 2, screenCursor.xOld2, 
-                screenCursor.yOld2 + 2, 0, pixel_buffer_address);
+    draw_line(screenCursor.xOld, screenCursor.yOld - 2, screenCursor.xOld, 
+                screenCursor.yOld + 2, 0, pixel_buffer_address);
 
     return;
 }
@@ -317,11 +315,8 @@ void initializeScreenCursor(Cursor * screenCursorPtr)
     screenCursorPtr->y = YMAX / 2;
 
     //The old locations of the screenCursor are set to be the same as its starting position.
-    screenCursorPtr->xOld1 = screenCursorPtr->x;
-    screenCursorPtr->yOld1 = screenCursorPtr->y;
-
-    screenCursorPtr->xOld2 = screenCursorPtr->x;
-    screenCursorPtr->yOld2 = screenCursorPtr->y;
+    screenCursorPtr->xOld = screenCursorPtr->x;
+    screenCursorPtr->yOld = screenCursorPtr->y;
 
     //The colour of the cursor, in this case green.
     screenCursorPtr->colour = 0x07E0;
@@ -363,11 +358,8 @@ void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readB
 void updateCursorPosition(Cursor * screenCursorPtr)
 {
     //Update the fields reflecting the old position with the current position.
-    screenCursorPtr->xOld2 = screenCursorPtr->xOld1;
-    screenCursorPtr->yOld2 = screenCursorPtr->yOld1;
-
-    screenCursorPtr->xOld1 = screenCursorPtr->x;
-    screenCursorPtr->yOld1 = screenCursorPtr->y;
+    screenCursorPtr->xOld = screenCursorPtr->x;
+    screenCursorPtr->yOld = screenCursorPtr->y;
 
     //Update the current position of the cursor.
     if (screenCursorPtr->deltax == -1)      //Moving left.
