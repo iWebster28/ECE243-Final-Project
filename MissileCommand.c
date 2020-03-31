@@ -454,10 +454,9 @@ void compute_missiles(Missile missile_array[], int num_missiles, int x_target, i
         missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
         missile_array[i].y_pos = (rand() % y_height_spawn);
         //Random Velocity
-        missile_array[i].dx = (rand() % x_vel_max);
-        missile_array[i].dy = (rand() % y_vel_max);
+        missile_array[i].dx = (rand() % (x_vel_max - 1)) + 1;
+        missile_array[i].dy = (rand() % (y_vel_max - 1)) + 1;
         missile_array[i].colour = colour;
-        if (x_vel == 0) x_vel = 1;
         //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
     }
 
