@@ -47,13 +47,13 @@ struct Cursor
 typedef struct Cursor Cursor;
 
 struct Missile {
-    int dx; 
+    int dx; //Velocity
     int dy; 
-    int x_pos; 
+    int x_pos; //Current position to be drawn
     int y_pos;
-    int x_old;
+    int x_old; //Previous position
     int y_old;
-    short int colour; 
+    short int colour; //Colour of missile
 };
 
 typedef struct Missile Missile;
@@ -72,7 +72,7 @@ void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
 void compute_missiles(Missile missile_array[], int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
 void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
-void draw_missile_and_update(Missile missile_array[], volatile int pixel_buffer_address);
+void draw_missiles_and_update(Missile missile_array[], int num_missiles, volatile int pixel_buffer_address);
 
 
 //Input functions.
@@ -143,7 +143,7 @@ int main(void)
     //These parameters could be changed for every round/stage. Testing purposes currently.
     int x_target = 160;
     int y_target = 239;
-    int x_vel_max = 2;
+    int x_vel_max = 2; //pos or neg. direction
     int y_vel_max = 5; 
     short int colour = red; //temp
 
@@ -155,6 +155,12 @@ int main(void)
     while (1)
     {
         //Clear previous graphics.
+
+        //Erase the old position of all the missiles - FIX.
+        for (int i = 0; i < num_missiles; i++) {
+            draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, black, pixel_buffer_address);
+        }
+        //clear_screen(pixel_buffer_address); //TEST
 
         //Erase the cursor from the previous frame.
         erase_old_cursor(screenCursor, pixel_buffer_address);
@@ -169,7 +175,7 @@ int main(void)
         //Draw new graphics.
         draw_cursor(screenCursor, pixel_buffer_address);
 
-        draw_missile_and_update(missile_array, pixel_buffer_address); //pass in arrays
+        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
 
         //Synchronize with the VGA display and swap the front and back pixel buffers.
         wait_for_vsync(pixel_ctrl_ptr); // swap front and back buffers on VGA vertical sync
@@ -454,7 +460,7 @@ void compute_missiles(Missile missile_array[], int num_missiles, int x_target, i
         missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
         missile_array[i].y_pos = (rand() % y_height_spawn);
         //Random Velocity
-        missile_array[i].dx = (rand() % (x_vel_max - 1)) + 1;
+        missile_array[i].dx = (rand() % x_vel_max) - x_vel_max + 1; //between - and + x_vel_max
         missile_array[i].dy = (rand() % (y_vel_max - 1)) + 1;
         missile_array[i].colour = colour;
         //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
@@ -463,23 +469,19 @@ void compute_missiles(Missile missile_array[], int num_missiles, int x_target, i
 }
 
 //Main draw function
-void draw_missile_and_update(Missile missile_array[], volatile int pixel_buffer_address) {
-    int num_missiles = 3; //NOT SYNCED WITH REST----------------------
-
-    //int num_missiles = missile_array.length();
-
+void draw_missiles_and_update(Missile missile_array[], int num_missiles, volatile int pixel_buffer_address) {
+    //Draw all the missiles in the missile_array
     for (int i = 0; i < num_missiles; i++) {
         draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
-    }
+        
+        // //Update positions
+        missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
+        missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
 
-    //update positions
-    for (int i = 0; i < num_missiles; i++) {
-        //if (dx[i] > -2 && dx[i] < 2)
-            missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
-        //if (dy[i] > -2 && dy[i] < 2)
-            missile_array[i].y_pos += missile_array[i].dy;
+        missile_array[i].y_old = missile_array[i].y_pos;
+        missile_array[i].y_pos += missile_array[i].dy;
     }
-
+    
     return;
 
 }
