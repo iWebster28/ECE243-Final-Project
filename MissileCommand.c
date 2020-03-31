@@ -6,9 +6,22 @@
 //Project End: 	4-9-20, 9PM
 //Eric Ivanov and Ian Webster
 
+#include <stdlib.h>
+#include <stdbool.h>
+#include <time.h> //for rand
+
 
 #define YMAX 239        //The max Y-coordinate of the screen.
 #define XMAX 319        //The max X coordinate of the screen.
+
+#define N 3 //Num missiles for now. temp.
+//Colours
+const short int black = 0x0000;
+const short int red = 0xF800;
+const short int blue = 0x081F;
+const short int green = 0x07E0;
+
+time_t t; //for rand
 
 //Different structs used to represent objects on the screen.
 
@@ -33,6 +46,18 @@ struct Cursor
 
 typedef struct Cursor Cursor;
 
+struct Missile {
+    int dx; 
+    int dy; 
+    int x_pos; 
+    int y_pos;
+    int x_old;
+    int y_old;
+    short int colour; 
+};
+
+typedef struct Missile Missile;
+
 
 
 /*******Helper functions declared.******/
@@ -45,8 +70,9 @@ void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
-
-
+void compute_missiles(Missile missile_array[], int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
+void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
+void draw_missile_and_update(Missile missile_array[], volatile int pixel_buffer_address);
 
 
 //Input functions.
@@ -107,6 +133,22 @@ int main(void)
     //Game variables, such as objects on the screen, are declared.
     Cursor screenCursor;
     initializeScreenCursor(&screenCursor);
+
+     //Random numbers
+    srand((unsigned) time(&t)); //Generate random numbers 
+
+    int num_missiles = 3;
+    Missile missile_array[N]; //Declare array of missiles. FIXED SIZE FOR NOW----------------------------
+
+    //These parameters could be changed for every round/stage. Testing purposes currently.
+    int x_target = 160;
+    int y_target = 239;
+    int x_vel_max = 2;
+    int y_vel_max = 5; 
+    short int colour = red; //temp
+
+    //Compute N missiles.
+    compute_missiles(missile_array, num_missiles, x_target, y_target, x_vel_max, y_vel_max, colour, pixel_buffer_address);
     
 
     //The main loop of the program.
@@ -127,6 +169,7 @@ int main(void)
         //Draw new graphics.
         draw_cursor(screenCursor, pixel_buffer_address);
 
+        draw_missile_and_update(missile_array, pixel_buffer_address); //pass in arrays
 
         //Synchronize with the VGA display and swap the front and back pixel buffers.
         wait_for_vsync(pixel_ctrl_ptr); // swap front and back buffers on VGA vertical sync
@@ -394,6 +437,71 @@ void updateCursorPosition(Cursor * screenCursorPtr)
     return;
 }
 
+//This function creates multiple missiles according to the parameters it is fed.
+void compute_missiles(Missile missile_array[], int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address) {
+
+    //Colours array
+    //short int colours[3] = {red, blue, green}; //{0xFFFF, 0xF800, 0x07E0, 0x001F, 0x5890, 0x1240, 0x2510, 0xFFAB};
+
+    //not using x and y target yet. Soon, use eqn of line.
+
+    int x_width_spawn = 20; //assumed spwan width centered at top of screen.
+    int y_height_spawn = 10; //How far from top of screen can missiles spawn.
+    int x0 = 0, y0 = 0, x_vel = 0, y_vel = 0;
+    //((rand() % 2)*2) - 1;
+    for (int i = 0; i < num_missiles; i++) {
+        //Random Position
+        missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
+        missile_array[i].y_pos = (rand() % y_height_spawn);
+        //Random Velocity
+        missile_array[i].dx = (rand() % x_vel_max);
+        missile_array[i].dy = (rand() % y_vel_max);
+        missile_array[i].colour = colour;
+        if (x_vel == 0) x_vel = 1;
+        //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
+    }
+
+}
+
+//Main draw function
+void draw_missile_and_update(Missile missile_array[], volatile int pixel_buffer_address) {
+    int num_missiles = 3; //NOT SYNCED WITH REST----------------------
+
+    //int num_missiles = missile_array.length();
+
+    for (int i = 0; i < num_missiles; i++) {
+        draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
+    }
+
+    //update positions
+    for (int i = 0; i < num_missiles; i++) {
+        //if (dx[i] > -2 && dx[i] < 2)
+            missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
+        //if (dy[i] > -2 && dy[i] < 2)
+            missile_array[i].y_pos += missile_array[i].dy;
+    }
+
+    return;
+
+}
+
+
+//Function to draw the incoming enemy nukes from the top of the screen.
+void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address) {
+    int x_size = 4; //Missile size
+    int y_size = 4;
+
+    for (int x = x0; (x < x0 + x_size); x++) {
+        for (int y = y0; (y < y0 + y_size); y++) {
+            if (x <= 0|| x >= XMAX || y <= 0 || y >= YMAX) { //was <= >= <= >=
+                //if out of bounds, don't draw pixel. // WILL HAVE TO CHANGE CORRESPONDING TO BOX SIZE.
+            } else {
+                plot_pixel(x, y, colour, pixel_buffer_address);
+            } 
+        }
+    }
+
+}
 
 
 
