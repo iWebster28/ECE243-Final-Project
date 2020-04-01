@@ -14,6 +14,11 @@
 #define YMAX 239        //The max Y-coordinate of the screen.
 #define XMAX 319        //The max X coordinate of the screen.
 
+#define PS2INPUTBYTES 12    //The number of bytes from the PS2 input processed at a time.
+                            //Stored PS2 input bytes are refreshed each game cycle.
+                            //If the number of input bytes exceeds this value, the extra
+                            //bytes are discarded.
+
 #define N 3 //Num missiles for now. temp.
 //Colours
 const short int black = 0x0000;
@@ -60,7 +65,7 @@ typedef struct Missile Missile;
 
 
 
-/*******Helper functions declared.******/
+/*******Helper functions declared.*******/
 
 //Drawing functions.
 void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_address);
@@ -76,13 +81,11 @@ void draw_missiles_and_update(Missile missile_array[], int num_missiles, volatil
 
 
 //Input functions.
-void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char * readByte1, 
-                                unsigned char * readByte2, unsigned char * readByte3);
+void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char readBytes[]);
 
 //Game variable update functions.
 void initializeScreenCursor(Cursor * screenCursorPtr);
-void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readByte1,
-                                    unsigned char readByte2, unsigned char readByte3);
+void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readBytes[]);
 void updateCursorPosition(Cursor * screenCursorPtr);
 
 //Miscallaneous functions.
@@ -103,8 +106,9 @@ int main(void)
 
     //Variables to store the data read from the PS/2 input.
     
-    //The last 3 bytes read (byte1 is the most recent).
-    unsigned char readByte1, readByte2, readByte3;
+    //The array holding the bytes read from the PS2 input each cycle.
+    //The byte with index "0" is the one most recently read.
+    unsigned char readBytes[PS2INPUTBYTES];
 
 
     //The Pixel Control Register pixel buffers are configured.
@@ -166,10 +170,10 @@ int main(void)
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
         //Poll keyboard input.
-        mostRecentKeyboardInputs(ps2_ctrl_ptr, &readByte1, &readByte2, &readByte3);
+        mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
 
         //Process the input to update game variables.
-        updateCursorMovementDirection(&screenCursor, readByte1, readByte2, readByte3);
+        updateCursorMovementDirection(&screenCursor, readBytes);
         updateCursorPosition(&screenCursor);
 
         //Draw new graphics.
@@ -316,8 +320,7 @@ void wait_for_vsync(volatile int * pixel_ctrl_ptr)
 
 //Gets the 3 most recent bytes of keyboard input and stores them at the addresses of the
 //parameters. The most recent input is stored in the address pointed to by readByte1.
-void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char * readByte1, 
-                                unsigned char * readByte2, unsigned char * readByte3)
+void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char readBytes[]) 
 {
     //Keyboard input processing. Keyboard input is read one byte at a time.
     //Every time a read is performed of the PS/2 control register, it discards the 
@@ -328,21 +331,28 @@ void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char * readB
     char validRead;
 
     //Clear previously stored input.
-    *readByte1 = 0;
-    *readByte2 = 0;
-    *readByte3 = 0;
+    //Note that the number of bytes processed each cycle is identified by PS2INPUTBYTES.
+    //Thus, the size of the arrya holding the input need not be explicitly passed to this 
+    //function and others that use it.
+    for (int i = 0; i < PS2INPUTBYTES; i++)
+        readBytes[i] = 0;
+    
 
     ps2_data = *(ps2_ctrl_ptr);
     validRead = ( (ps2_data & 0x8000) != 0);
 
-    //So long as there is still valid input to process, keep updating the variables storing 
-    //the most recent bytes of input.
+    //So long as there is still valid input to process, keep filling the array storing 
+    //the bytes of input from the bottom up.
+    //If the array becomes full, extra input is discarded.
+    int i = PS2INPUTBYTES - 1;  //Index for the bottom of the array.
     while (validRead)
     {
-        //Update the last 3 bytes read to reflect the current read.
-        *readByte3 = *readByte2;
-        *readByte2 = *readByte1;
-        *readByte1 = (ps2_data & 0xFF);
+        //Add bytes to the array containing input so long as it is not full.
+        if (i >= 0)
+        {
+            readBytes[i] = (ps2_data & 0xFF);
+            i--;
+        }
 
         //Attempt to read from the PS/2 Controller again and check if the read is valid.
         ps2_data = *(ps2_ctrl_ptr);
@@ -374,29 +384,52 @@ void initializeScreenCursor(Cursor * screenCursorPtr)
 }
 
 //The dirction the cursor is moving is updated by the arrow keys.
-void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readByte1,
-                                    unsigned char readByte2, unsigned char readByte3)
+void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readBytes[])
 {
-    //Only one cursor direction can be affected by input at a time.
-
-    //First, set all cursor movement to 0.
-    screenCursorPtr->deltax = 0;
-    screenCursorPtr->deltay = 0;
-
-    //Now, check to see if arrow keys were pressed, and update movement direction accordingly.
-    if (readByte2 == 0xE0)          //This byte is always present for an arrow key.
+    //The array of keyboard input is examined in overlapping three-byte packets.
+    //The location of these packets in the array is kept track of with the index i.
+    //3 byte overlapping sequences are considered from the highest index of the
+    //input array to the lowest (from the oldest input to the most recent).
+    for (int i = PS2INPUTBYTES - 1; i > 1; i--)
     {
-        if (readByte1 == 0x6B)      //Left arrow key.
-            screenCursorPtr->deltax = -1;
+        //First check to see if an arrow key sent the input byte.
+        //Information from arrow keys starts with the hex value E0.
+        if (readBytes[i] == 0xE0)
+        {
+            //Now, check and see if the second byte indicates a key release.
+            //If the arrow key was released, it should have the value F0.
+            if (readBytes[i - 1] == 0xF0)
+            {
+                //Now that it is known an arrow key was released, stop movement
+                //according to the key that was pressed (inspect the third byte).
+                if (readBytes[i - 2] == 0x6B)      //Left arrow key released.
+                    screenCursorPtr->deltax = 0;
 
-        if (readByte1 == 0x74)      //Right arrow key.
-            screenCursorPtr->deltax = 1;
+                if (readBytes[i - 2] == 0x74)      //Right arrow key released.
+                    screenCursorPtr->deltax = 0;
 
-        if (readByte1 == 0x75)      //Up arrow key.
-            screenCursorPtr->deltay = -1;
+                if (readBytes[i - 2] == 0x75)      //Up arrow key released.
+                    screenCursorPtr->deltay = 0;
 
-        if (readByte1 == 0x72)      //Down arrow key.
-            screenCursorPtr->deltay = 1;
+                if (readBytes[i - 2] == 0x72)      //Down arrow key released.
+                    screenCursorPtr->deltay = 0;
+            }
+
+            //If the second byte did not indicate a release, it may indicate a press instead.
+            //Check the value of the second byte to see which key press it represents, and
+            //update movement accordingly.
+            if (readBytes[i - 1] == 0x6B)      //Left arrow key.
+                screenCursorPtr->deltax = -1;
+
+            if (readBytes[i - 1] == 0x74)      //Right arrow key.
+                screenCursorPtr->deltax = 1;
+
+            if (readBytes[i - 1] == 0x75)      //Up arrow key.
+                screenCursorPtr->deltay = -1;
+
+            if (readBytes[i - 1] == 0x72)      //Down arrow key.
+                screenCursorPtr->deltay = 1;
+        }
     }
 
     return;
