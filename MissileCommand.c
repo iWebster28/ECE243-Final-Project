@@ -58,6 +58,8 @@ struct Missile {
     int y_pos;
     int x_old; //Previous position
     int y_old;
+    int x_old2;
+    int y_old2;
     short int colour; //Colour of missile
 };
 
@@ -75,9 +77,13 @@ void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
-void compute_missiles(Missile missile_array[], int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
+void compute_missiles(Missile *missile_array, int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
 void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
-void draw_missiles_and_update(Missile missile_array[], int num_missiles, volatile int pixel_buffer_address);
+void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile int pixel_buffer_address);
+void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address);
+
+bool inBounds(int x, int y); //Returns bool
+void inFunction(volatile int pixel_buffer_address);
 
 
 //Input functions.
@@ -141,7 +147,7 @@ int main(void)
      //Random numbers
     srand((unsigned) time(&t)); //Generate random numbers 
 
-    int num_missiles = 3;
+    int num_missiles = 5;
     Missile missile_array[N]; //Declare array of missiles. FIXED SIZE FOR NOW----------------------------
 
     //These parameters could be changed for every round/stage. Testing purposes currently.
@@ -161,9 +167,7 @@ int main(void)
         //Clear previous graphics.
 
         //Erase the old position of all the missiles - FIX.
-        for (int i = 0; i < num_missiles; i++) {
-            draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, black, pixel_buffer_address);
-        }
+        clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address);
         //clear_screen(pixel_buffer_address); //TEST
 
         //Erase the cursor from the previous frame.
@@ -477,7 +481,7 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 }
 
 //This function creates multiple missiles according to the parameters it is fed.
-void compute_missiles(Missile missile_array[], int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address) {
+void compute_missiles(Missile *missile_array, int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address) {
 
     //Colours array
     //short int colours[3] = {red, blue, green}; //{0xFFFF, 0xF800, 0x07E0, 0x001F, 0x5890, 0x1240, 0x2510, 0xFFAB};
@@ -493,7 +497,7 @@ void compute_missiles(Missile missile_array[], int num_missiles, int x_target, i
         missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
         missile_array[i].y_pos = (rand() % y_height_spawn);
         //Random Velocity
-        missile_array[i].dx = (rand() % x_vel_max) - x_vel_max + 1; //between - and + x_vel_max
+        missile_array[i].dx = (rand() % x_vel_max) - x_vel_max + 2; //between - and + x_vel_max
         missile_array[i].dy = (rand() % (y_vel_max - 1)) + 1;
         missile_array[i].colour = colour;
         //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
@@ -502,17 +506,22 @@ void compute_missiles(Missile missile_array[], int num_missiles, int x_target, i
 }
 
 //Main draw function
-void draw_missiles_and_update(Missile missile_array[], int num_missiles, volatile int pixel_buffer_address) {
+void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile int pixel_buffer_address) {
     //Draw all the missiles in the missile_array
+    int size_missile = 4;
     for (int i = 0; i < num_missiles; i++) {
-        draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
-        
-        // //Update positions
-        missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
-        missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
+        if (inBounds(missile_array[i].x_pos - size_missile, missile_array[i].y_pos - size_missile)) {
+            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
+            
+            // //Update positions
+            missile_array[i].x_old2 = missile_array[i].x_old;
+            missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
+            missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
 
-        missile_array[i].y_old = missile_array[i].y_pos;
-        missile_array[i].y_pos += missile_array[i].dy;
+            missile_array[i].y_old2 = missile_array[i].y_old;
+            missile_array[i].y_old = missile_array[i].y_pos;
+            missile_array[i].y_pos += missile_array[i].dy;
+        }
     }
     
     return;
@@ -537,6 +546,30 @@ void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buf
 
 }
 
+//Remove missiles from 2 frames ago! - THIS SHOULD NOT BE DRAWING AFTER A MISSILE LEAVES THE SCREEN...
+void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address) {
+    short int colour_to_paint = blue;
+    for (int i = 0; i < num_missiles; i++) {
+        if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
+            draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
+        }
+        if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
+            draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, colour_to_paint, pixel_buffer_address);
+        }
+    }
+}
+
+bool inBounds(int x, int y) {
+    if ((x >= 0 && x <= XMAX) && (y >= 0 && y <= YMAX))
+        return true;
+    else 
+        return false;
+}
+
+//Like cout to say if you're in a certain function - visual debugging
+void inFunction(volatile int pixel_buffer_address) {
+
+}
 
 
 
