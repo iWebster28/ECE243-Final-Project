@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h> //for rand
+#include <stdio.h>
 
 //Global
 volatile int * led_ctrl_ptr = (int *)0xFF200000;
@@ -538,8 +539,19 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
             missile_array[i].y_old2 = missile_array[i].y_old;
             missile_array[i].y_old = missile_array[i].y_pos;
             missile_array[i].y_pos += missile_array[i].dy;
+
+            //Bounds-clamping - for newly computed positions.
+            if (missile_array[i].x_pos < 0) {
+                missile_array[i].x_pos == 0;
+            }
+            if (missile_array[i].x_pos > XMAX) {
+                missile_array[i].x_pos == XMAX;
+            }
+            if (missile_array[i].y_pos > YMAX) {
+                missile_array[i].y_pos == YMAX;
+            }
         } else { //not in bounds.
-            missile_array[i].in_bound = 0;
+            //missile_array[i].in_bound = 0;
         }
     }
     
@@ -568,7 +580,10 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
     short int trail_colour = black; //colour_array[rand() % 3];
     
     for (int i = 0; i < num_missiles; i++) {
-        if (missile_array[i].in_bound == 0) {
+        if (missile_array[i].x_pos == XMAX || missile_array[i].x_pos == 0 || missile_array[i].y_pos == YMAX /*missile_array[i].in_bound == 0*/) {
+            //Clear current pos.
+            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, trail_colour, pixel_buffer_address);
+
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
                 inFunction(pixel_buffer_address, 1); //DIAG
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
@@ -577,16 +592,17 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
                 inFunction(pixel_buffer_address, 1); //DIAG
                 draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
             }
-            missile_array[i].in_bound = 2; //2 means "went out of bounds, and cleared previous frames. ignore now."
+            //missile_array[i].in_bound = 2; //2 means "went out of bounds, and cleared previous frames. ignore now."
+            missile_array[i].x_pos = XMAX + 1; //to make out of bounds. Therefore, draw_missiles_and_update won't update position, and this 'if' won't draw again.
+            missile_array[i].y_pos = YMAX + 1;
 
-            
         } else if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos)) { //if still in bounds of screen.
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                inFunction(pixel_buffer_address, 2); //DIAG
+                //inFunction(pixel_buffer_address, 2); //DIAG
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
-                inFunction(pixel_buffer_address, 2); //DIAG
+                //inFunction(pixel_buffer_address, 2); //DIAG
                 draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
             }
         //Prevent the IFs from drawing after the last 2 positions were cleared, and the missile is off-screen.
