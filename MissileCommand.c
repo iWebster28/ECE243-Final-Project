@@ -10,6 +10,9 @@
 #include <stdbool.h>
 #include <time.h> //for rand
 
+//Global
+volatile int * led_ctrl_ptr = (int *)0xFF200000;
+
 
 #define YMAX 239        //The max Y-coordinate of the screen.
 #define XMAX 319        //The max X coordinate of the screen.
@@ -53,14 +56,14 @@ struct Cursor
 typedef struct Cursor Cursor;
 
 struct Missile {
-    int dx; //Velocity
-    int dy; 
-    int x_pos; //Current position to be drawn
-    int y_pos;
-    int x_old; //Previous position
-    int y_old;
-    int x_old2;
-    int y_old2;
+    volatile int dx; //Velocity
+    volatile int dy; 
+    volatile int x_pos; //Current position to be drawn
+    volatile int y_pos;
+    volatile int x_old; //Previous position
+    volatile int y_old;
+    volatile int x_old2;
+    volatile int y_old2;
     short int colour; //Colour of missile
     bool in_bound;
 };
@@ -85,8 +88,8 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
 void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address);
 
 bool inBounds(int x, int y); //Returns bool
-void inFunction(volatile int pixel_buffer_address);
-void notInFunction(volatile int pixel_buffer_address);
+void inFunction(volatile int pixel_buffer_address, int led_to_light);
+void notInFunction(volatile int pixel_buffer_address, int led_to_light);
 
 
 //Input functions.
@@ -150,6 +153,8 @@ int main(void)
      //Random numbers
     srand((unsigned) time(&t)); //Generate random numbers 
 
+
+    //GENERATE AND STORE MISSILES
     int num_missiles = 5;
     Missile missile_array[N]; //Declare array of missiles. FIXED SIZE FOR NOW----------------------------
 
@@ -497,7 +502,7 @@ void compute_missiles(Missile *missile_array, int num_missiles, int x_target, in
     //((rand() % 2)*2) - 1;
     for (int i = 0; i < num_missiles; i++) {
         //Initialize all previous position data to 0
-        missile_array[i].in_bound = 1;
+        missile_array[i].in_bound = 1; //1 means in bound
         missile_array[i].x_old = 0;
         missile_array[i].y_old = 0;
         missile_array[i].x_old2 = 0;
@@ -565,11 +570,11 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
     for (int i = 0; i < num_missiles; i++) {
         if (missile_array[i].in_bound == 0) {
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                inFunction(pixel_buffer_address); //DIAG
+                inFunction(pixel_buffer_address, 1); //DIAG
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
-                inFunction(pixel_buffer_address); //DIAG
+                inFunction(pixel_buffer_address, 1); //DIAG
                 draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
             }
             missile_array[i].in_bound = 2; //2 means "went out of bounds, and cleared previous frames. ignore now."
@@ -577,19 +582,22 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             
         } else if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos)) { //if still in bounds of screen.
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                //inFunction(pixel_buffer_address); //DIAG
+                inFunction(pixel_buffer_address, 2); //DIAG
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
-                //inFunction(pixel_buffer_address); //DIAG
+                inFunction(pixel_buffer_address, 2); //DIAG
                 draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
             }
         //Prevent the IFs from drawing after the last 2 positions were cleared, and the missile is off-screen.
         //if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos) == false)  //If x and y not on screen, then don't draw!
         //    missile_array[i].in_bound = false;
         } else {
-             notInFunction(pixel_buffer_address); //DIAG
+            notInFunction(pixel_buffer_address, 1); //DIAG
+            notInFunction(pixel_buffer_address, 2);
         }
+        
+        //missile_array[i].in_bound = 2;
        
     }
 }
@@ -602,13 +610,17 @@ bool inBounds(int x, int y) {
 }
 
 //Diagnostic pixel in top left corner: flashes if in function you put this in. Like cout to say if you're in a certain function - visual debugging
-void inFunction(volatile int pixel_buffer_address) {
+void inFunction(volatile int pixel_buffer_address, int led_to_light) {
     short int colour[3] = {red, blue, green};
     draw_enemy_missile(0, 0, colour[rand() % 3], pixel_buffer_address); //keep flashing pixel until out of function.
+
+    *led_ctrl_ptr = *led_ctrl_ptr | led_to_light; //Light up led_to_light - leave others alone
 }
 
-void notInFunction(volatile int pixel_buffer_address) {
+void notInFunction(volatile int pixel_buffer_address, int led_to_light) {
     draw_enemy_missile(0, 0, black, pixel_buffer_address); //black out
+
+    *led_ctrl_ptr = 0; //Turn off ALL (ignore led_to_light)
 }
 
 
