@@ -149,11 +149,7 @@ int main(void)
 
     //Game variables, such as objects on the screen, are declared.
     Cursor screenCursor;
-    initializeScreenCursor(&screenCursor);
-
-     //Random numbers
-    srand((unsigned) time(&t)); //Generate random numbers 
-
+    initializeScreenCursor(&screenCursor); 
 
     //GENERATE AND STORE MISSILES
     int num_missiles = 5;
@@ -163,7 +159,7 @@ int main(void)
     int x_target = 160;
     int y_target = 239;
     int x_vel_max = 1; //pos or neg. direction
-    int y_vel_max = 5; 
+    int y_vel_max = 0.25; 
     short int colour = red; //temp
 
     //Compute N missiles.
@@ -496,9 +492,11 @@ void compute_missiles(Missile *missile_array, int num_missiles, int x_target, in
     //short int colours[3] = {red, blue, green}; //{0xFFFF, 0xF800, 0x07E0, 0x001F, 0x5890, 0x1240, 0x2510, 0xFFAB};
 
     //not using x and y target yet. Soon, use eqn of line.
-
-    int x_width_spawn = 20; //assumed spwan width centered at top of screen.
-    int y_height_spawn = 10; //How far from top of screen can missiles spawn.
+    //Random numbers
+    srand((unsigned) time(&t)); //Generate random numbers
+    
+    int x_width_spawn = 150; //assumed spwan width centered at top of screen.
+    int y_height_spawn = 5; //How far from top of screen can missiles spawn.
     //int x0 = 0, y0 = 0, x_vel = 0, y_vel = 0;
     //((rand() % 2)*2) - 1;
     for (int i = 0; i < num_missiles; i++) {
@@ -512,10 +510,26 @@ void compute_missiles(Missile *missile_array, int num_missiles, int x_target, in
         missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
         missile_array[i].y_pos = (rand() % y_height_spawn);
         //Random Velocity
-        missile_array[i].dx = (rand() % x_vel_max) - x_vel_max; //between - and + x_vel_max
-        while (missile_array[i].dx == 0) { //prevent 0 velocity.
-            missile_array[i].dx = (rand() % x_vel_max) - x_vel_max; 
-        }
+        missile_array[i].dx = ((rand() % 2)*2) - 1; //(rand() % x_vel_max) - x_vel_max; //between - and + x_vel_max
+        
+        // double random_value;
+
+        // srand ( time ( NULL));
+
+        // random_value = (double)rand()/RAND_MAX*2.0-1.0; //float in range -1 to 1
+        // missile_array[i].dx = random_value;
+        // printf ( "%f\n", random_value);
+
+
+        // double random_value2 = (double)rand()/RAND_MAX*2.0-1.0;//float in range -1 to 1
+        // missile_array[i].dy = random_value2;
+
+
+
+        // while (missile_array[i].dx == 0) { //prevent 0 velocity.
+        //     missile_array[i].dx = (rand() % x_vel_max) + 1; 
+        // }
+        //if (rand() % 2 == 0) x_vel_max *= 1;
         missile_array[i].dy = (rand() % (y_vel_max - 1)) + 1;
         missile_array[i].colour = colour;
         //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
@@ -534,21 +548,24 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
             // //Update positions
             missile_array[i].x_old2 = missile_array[i].x_old;
             missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
-            missile_array[i].x_pos += missile_array[i].dx; //Update positions correspondingly
+            missile_array[i].x_pos += missile_array[i].dx/1; //Update positions correspondingly
 
             missile_array[i].y_old2 = missile_array[i].y_old;
             missile_array[i].y_old = missile_array[i].y_pos;
-            missile_array[i].y_pos += missile_array[i].dy;
+            missile_array[i].y_pos += missile_array[i].dy/1;
 
             //Bounds-clamping - for newly computed positions.
-            if (missile_array[i].x_pos < 0) {
-                missile_array[i].x_pos == 0;
+            if (missile_array[i].x_pos <= 0) {
+                missile_array[i].x_pos == -1;
+                missile_array[i].in_bound = 0;
             }
-            if (missile_array[i].x_pos > XMAX) {
-                missile_array[i].x_pos == XMAX;
+            if (missile_array[i].x_pos >= XMAX) {
+                missile_array[i].x_pos == XMAX + 1;
+                missile_array[i].in_bound = 0;
             }
-            if (missile_array[i].y_pos > YMAX) {
-                missile_array[i].y_pos == YMAX;
+            if (missile_array[i].y_pos >= YMAX) {
+                missile_array[i].y_pos == YMAX + 1;
+                missile_array[i].in_bound = 0;
             }
         } else { //not in bounds.
             //missile_array[i].in_bound = 0;
@@ -577,33 +594,60 @@ void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buf
 //Remove missiles from 2 frames ago! - THIS SHOULD NOT BE DRAWING AFTER A MISSILE LEAVES THE SCREEN...
 void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address) {
     short int colour_array[3] = {red, blue, green};
-    short int trail_colour = black; //colour_array[rand() % 3];
-    
+    //short int trail_colour_1 = blue; //colour_array[rand() % 3];
+    //short int trail_colour_2 = green;
+
+    short int colour_to_paint = black;
     for (int i = 0; i < num_missiles; i++) {
-        if (missile_array[i].x_pos == XMAX || missile_array[i].x_pos == 0 || missile_array[i].y_pos == YMAX /*missile_array[i].in_bound == 0*/) {
+        if (missile_array[i].in_bound == 2) { //Don't draw anything for this missile - it went out of bounds.
+            //notInFunction(pixel_buffer_address, 1);
+        }
+        else if (missile_array[i].in_bound == 0) { //If at the boundary:
+            if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
+                //inFunction(pixel_buffer_address, 1); //DIAG
+                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
+            }
+            if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
+                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, colour_to_paint, pixel_buffer_address);
+            }
+            missile_array[i].in_bound = 2; //prevent drawing again.
+
+        } else if (missile_array[i].in_bound == 1) { //if in bounds
+            if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
+                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
+            }
+            if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
+                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, colour_to_paint, pixel_buffer_address);
+            }
+        }
+    }
+    
+    /*
+    for (int i = 0; i < num_missiles; i++) {
+        if (missile_array[i].x_pos == XMAX || missile_array[i].x_pos == 0 || missile_array[i].y_pos == YMAX) { //missile_array[i].in_bound == 0
             //Clear current pos.
-            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, trail_colour, pixel_buffer_address);
+            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, trail_colour_1, pixel_buffer_address);
 
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
                 inFunction(pixel_buffer_address, 1); //DIAG
-                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
+                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour_1, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
                 inFunction(pixel_buffer_address, 1); //DIAG
-                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
+                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour_1, pixel_buffer_address);
             }
-            //missile_array[i].in_bound = 2; //2 means "went out of bounds, and cleared previous frames. ignore now."
+            missile_array[i].in_bound = 2; //2 means "went out of bounds, and need to clear an extra frame. (the "current position")"
             missile_array[i].x_pos = XMAX + 1; //to make out of bounds. Therefore, draw_missiles_and_update won't update position, and this 'if' won't draw again.
             missile_array[i].y_pos = YMAX + 1;
 
         } else if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos)) { //if still in bounds of screen.
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                //inFunction(pixel_buffer_address, 2); //DIAG
-                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour, pixel_buffer_address);
+                inFunction(pixel_buffer_address, 2); //DIAG
+                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour_2, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
                 //inFunction(pixel_buffer_address, 2); //DIAG
-                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour, pixel_buffer_address);
+                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour_2, pixel_buffer_address);
             }
         //Prevent the IFs from drawing after the last 2 positions were cleared, and the missile is off-screen.
         //if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos) == false)  //If x and y not on screen, then don't draw!
@@ -615,8 +659,13 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
         
         //missile_array[i].in_bound = 2;
        
-    }
+    }*/
 }
+
+// void clear_missile_at_boundary(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address) {
+
+
+// }
 
 bool inBounds(int x, int y) {
     if ((x >= 0 && x <= XMAX) && (y >= 0 && y <= YMAX))
