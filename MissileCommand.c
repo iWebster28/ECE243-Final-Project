@@ -10,10 +10,12 @@
 #include <stdbool.h>
 #include <time.h> //for rand
 #include <stdio.h>
+#include <math.h>
 
 //Global
 volatile int * led_ctrl_ptr = (int *)0xFF200000;
 
+#define FPS 60 //Framerate
 
 #define YMAX 239        //The max Y-coordinate of the screen.
 #define XMAX 319        //The max X coordinate of the screen.
@@ -57,14 +59,14 @@ struct Cursor
 typedef struct Cursor Cursor;
 
 struct Missile {
-    volatile int dx; //Velocity
-    volatile int dy; 
-    volatile int x_pos; //Current position to be drawn
-    volatile int y_pos;
-    volatile int x_old; //Previous position
-    volatile int y_old;
-    volatile int x_old2;
-    volatile int y_old2;
+    double x_vel; //Velocity
+    double y_vel; 
+    double x_pos; //Current position to be drawn
+    double y_pos;
+    double x_old; //Previous position
+    double y_old;
+    double x_old2;
+    double y_old2;
     short int colour; //Colour of missile
     bool in_bound;
 };
@@ -77,13 +79,12 @@ typedef struct Missile Missile;
 
 //Drawing functions.
 void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_address);
-void draw_line(int x0, int y0, int x1, int y1, short int line_colo, 
-                                volatile int pixel_buffer_address);
+void draw_line(int x0, int y0, int x1, int y1, short int line_color, volatile int pixel_buffer_address);
 void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
-void compute_missiles(Missile *missile_array, int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
+void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
 void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
 void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile int pixel_buffer_address);
 void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address);
@@ -104,6 +105,7 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 //Miscallaneous functions.
 void swap(int* first, int* second);
 int abs_diff(int first, int second);
+double randDouble(double min, double max);
 
 
 
@@ -156,10 +158,12 @@ int main(void)
     Missile missile_array[N]; //Declare array of missiles. FIXED SIZE FOR NOW----------------------------
 
     //These parameters could be changed for every round/stage. Testing purposes currently.
-    int x_target = 160;
-    int y_target = 239;
-    int x_vel_max = 1; //pos or neg. direction
-    int y_vel_max = 0.25; 
+    double x_target = 160;
+    double y_target = 239;
+    //Max velocities in pixels/sec (Framerate already taken into account in code.)
+    //Note: these will just be computed as one max velocity.
+    int x_vel_max = 30; //pos or neg. direction
+    int y_vel_max = 30; 
     short int colour = red; //temp
 
     //Compute N missiles.
@@ -486,7 +490,7 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 }
 
 //This function creates multiple missiles according to the parameters it is fed.
-void compute_missiles(Missile *missile_array, int num_missiles, int x_target, int y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address) {
+void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address) {
 
     //Colours array
     //short int colours[3] = {red, blue, green}; //{0xFFFF, 0xF800, 0x07E0, 0x001F, 0x5890, 0x1240, 0x2510, 0xFFAB};
@@ -494,8 +498,8 @@ void compute_missiles(Missile *missile_array, int num_missiles, int x_target, in
     //not using x and y target yet. Soon, use eqn of line.
     //Random numbers
     srand((unsigned) time(&t)); //Generate random numbers
-    
-    int x_width_spawn = 150; //assumed spwan width centered at top of screen.
+
+    int x_width_spawn = 300; //assumed spwan width centered at top of screen.
     int y_height_spawn = 5; //How far from top of screen can missiles spawn.
     //int x0 = 0, y0 = 0, x_vel = 0, y_vel = 0;
     //((rand() % 2)*2) - 1;
@@ -506,31 +510,39 @@ void compute_missiles(Missile *missile_array, int num_missiles, int x_target, in
         missile_array[i].y_old = 0;
         missile_array[i].x_old2 = 0;
         missile_array[i].y_old2 = 0;
+        
         //Random Position
         missile_array[i].x_pos = (rand() % x_width_spawn) + (0.5*XMAX - 0.5*x_width_spawn) /*center*/;
         missile_array[i].y_pos = (rand() % y_height_spawn);
-        //Random Velocity
-        missile_array[i].dx = ((rand() % 2)*2) - 1; //(rand() % x_vel_max) - x_vel_max; //between - and + x_vel_max
         
-        // double random_value;
+        //Random Velocity
+        //missile_array[i].x_vel = ((rand() % 2)*2) - 1; //(rand() % x_vel_max) - x_vel_max; //between - and + x_vel_max
+        //Trying to generate a random double for y-velocity.
+        //srand(time(NULL));
+        //missile_array[i].y_vel = randDouble(0, 2);
+        //printf ( "%f\n", missile_array[i].y_vel);
+        //if (missile_array[i].y_vel == 0) missile_array[i].y_vel = (rand() % (y_vel_max - 1)) + 1;
 
-        // srand ( time ( NULL));
+        //Try to target a specific location by precomputing the velocity to reach the target
+        double path_time = 1*FPS; //in 1/60th of second intervals. Therfore (1/60th sec)*60 = 1 second from start to end position.
+        double dx = ((double) (x_target - missile_array[i].x_pos));
+        double dy = ((double) (y_target - missile_array[i].y_pos));
 
-        // random_value = (double)rand()/RAND_MAX*2.0-1.0; //float in range -1 to 1
-        // missile_array[i].dx = random_value;
-        // printf ( "%f\n", random_value);
+        //double vel_max = sqrt(x_vel_max*x_vel_max + y_vel_max*y_vel_max);
+
+        double rand_x_vel = ((rand() % (x_vel_max - 1)) - x_vel_max + 1); //Used to determine velocities to reach the final position.
+        double rand_y_vel = (rand() % (y_vel_max - 1)) + 1;
+
+        double path_time_x = (dx / rand_x_vel); //Store the time it would take (in 60ths of a sec) to go from start to end XPOSITION, based on the user-defined velocity.
+        double path_time_y = (dy / rand_y_vel); //Store the time (in 60ths of a second) to go from start to end YPOSITION, based on the user-defined a random yvelocity.
+        
+        path_time = FPS*sqrt(path_time_x*path_time_x + path_time_y*path_time_y); //Path time it will take
+        //to go from start x,y to end x,y - at constrained x,y random velocities - with maximums set by the user in pixels/sec.
 
 
-        // double random_value2 = (double)rand()/RAND_MAX*2.0-1.0;//float in range -1 to 1
-        // missile_array[i].dy = random_value2;
+        missile_array[i].x_vel = dx / path_time;
+        missile_array[i].y_vel = dy / path_time;
 
-
-
-        // while (missile_array[i].dx == 0) { //prevent 0 velocity.
-        //     missile_array[i].dx = (rand() % x_vel_max) + 1; 
-        // }
-        //if (rand() % 2 == 0) x_vel_max *= 1;
-        missile_array[i].dy = (rand() % (y_vel_max - 1)) + 1;
         missile_array[i].colour = colour;
         //draw_enemy_missile(x0, y0, colour, pixel_buffer_address);
     }
@@ -548,11 +560,11 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
             // //Update positions
             missile_array[i].x_old2 = missile_array[i].x_old;
             missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
-            missile_array[i].x_pos += missile_array[i].dx/1; //Update positions correspondingly
+            missile_array[i].x_pos += missile_array[i].x_vel; //Update positions correspondingly
 
             missile_array[i].y_old2 = missile_array[i].y_old;
             missile_array[i].y_old = missile_array[i].y_pos;
-            missile_array[i].y_pos += missile_array[i].dy/1;
+            missile_array[i].y_pos += missile_array[i].y_vel;
 
             //Bounds-clamping - for newly computed positions.
             if (missile_array[i].x_pos <= 0) {
@@ -662,11 +674,6 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
     }*/
 }
 
-// void clear_missile_at_boundary(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address) {
-
-
-// }
-
 bool inBounds(int x, int y) {
     if ((x >= 0 && x <= XMAX) && (y >= 0 && y <= YMAX))
         return true;
@@ -694,6 +701,7 @@ void notInFunction(volatile int pixel_buffer_address, int led_to_light) {
 
 
 
+
 //Miscallaneous functions.
 
 //A swap function, which swaps the value stored by two integer variables.
@@ -713,4 +721,12 @@ int abs_diff(int first, int second)
 		return first - second;
 	else
 		return second - first;
+}
+
+double randDouble(double min, double max) {
+    //srand (time(NULL));
+    double range = max - min;
+    double divisor = RAND_MAX / range; //
+    return min + (rand() / divisor); 
+
 }
