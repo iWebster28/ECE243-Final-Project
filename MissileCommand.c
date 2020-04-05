@@ -25,7 +25,7 @@ volatile int * led_ctrl_ptr = (int *)0xFF200000;
                             //If the number of input bytes exceeds this value, the extra
                             //bytes are discarded.
 
-#define N 5 //Num missiles for now. temp.
+#define N 10 //MAX NUM MISSILES ON SCREEN ALLOWED AT A TIME (WITHIN XMAX AND YMAX)
 #define SIZE_MISSILE 4
 //Colours
 const short int black = 0x0000;
@@ -68,7 +68,7 @@ struct Missile {
     double x_old2;
     double y_old2;
     short int colour; //Colour of missile
-    bool in_bound;
+    bool in_bound; //0 if not in bounds; 1 if in bounds; 2 if JUST went out of bounds (for clear_missiles)
 };
 
 typedef struct Missile Missile;
@@ -84,11 +84,18 @@ void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
+
+//Missile Functions
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address);
 void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
 void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile int pixel_buffer_address);
 void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address);
 
+int determine_num_missiles(int round_num); //Returns max num_missiles allowed on screen at a time per round#.
+void add_missiles(int *num_missiles, Missile *missile_array, short int *colour, volatile int pixel_buffer_address); //Add more missiles to the missile_array for the current round. Make sure to check entries only with in_bound = 2. Then set to 1 after!
+bool missiles_on_screen_check(int *num_missiles); //Check how many missiles are on screen right now. Return true if within threshold to draw more. Else, (i.e. still a lot on screen), return false.
+
+//Diagnostic Functions
 bool inBounds(int x, int y); //Returns bool
 void inFunction(volatile int pixel_buffer_address, int led_to_light);
 void notInFunction(volatile int pixel_buffer_address, int led_to_light);
@@ -106,8 +113,6 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 void swap(int* first, int* second);
 int abs_diff(int first, int second);
 double randDouble(double min, double max);
-
-
 
 
 
@@ -153,11 +158,13 @@ int main(void)
     Cursor screenCursor;
     initializeScreenCursor(&screenCursor); 
 
-    //GENERATE AND STORE MISSILES
-    int num_missiles = 5;
-    Missile missile_array[N]; //Declare array of missiles. FIXED SIZE FOR NOW----------------------------
 
-    //These parameters could be changed for every round/stage. Testing purposes currently.
+    //GENERATE AND STORE MISSILES
+    int round_num = 0; //intial round is 0
+    int num_missiles = 5; //num_missiles will be determined based on round number, which changed in add_missiles
+    Missile missile_array[N]; //Declare array of missiles. FIXED MAXIMUM OF N MISSILES ON SCREEN AT A TIME.
+
+    //These parameters could be changed for every round/stage. Testing purposes currently.!!!!!!!!!!!!!
     double x_target = 160;
     double y_target = 239;
     //Max velocities in pixels/sec (Framerate already taken into account in code.)
@@ -166,10 +173,11 @@ int main(void)
     int y_vel_max = 30; 
     short int colour = red; //temp
 
-    //Compute N missiles.
+    //Round 0: determine how many missiles on screen allowed at a time.
+    num_missiles = determine_num_missiles(round_num); 
+    //Compute N missiles for the intial round.
     compute_missiles(missile_array, num_missiles, x_target, y_target, x_vel_max, y_vel_max, colour, pixel_buffer_address);
     
-
     //The main loop of the program.
     while (1)
     {
@@ -177,7 +185,33 @@ int main(void)
 
         //Erase the old position of all the missiles - FIX.
         clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address);
-        //clear_screen(pixel_buffer_address); //TEST
+
+        //CHECK IF ROUND OVER (i.e. #of collisions with player > some_max)
+        //If yes, round_num++; 
+        //num_missiles = determine_num_missiles(int round_num); //udpate num missiles for this round
+        //then call compute_missiles(num_missiles as determined by round_num)
+        //compute_missiles should be called at the start of every round. Will overwrite/create an entirely new batch of missiles. 
+        //(for loop for num_missiles times.)
+        
+        //DETERMINE IF WE NEED TO ADD MORE MISSILES TO THE SCREEN - for the CURRENT ROUND.
+        //Check how many missiles are on screen. 
+        //If curr_missiles_screen < max_missiles_screen then spawn more (i.e. call add_missiles)
+        //to check curr_missiles_screen -> for loop to see which missiles have in_bound = 2.
+
+        bool add_more_missiles = false;
+        add_more_missiles = missiles_on_screen_check(num_missiles);
+        if (add_more_missiles) {
+            num_missiles = determine_num_missiles(round_num); //redundant (done ealier)
+            add_missiles(num_missiles, missile_array, colour, pixel_buffer_address); 
+            //This function should be called whenever missiles_on_screen_check returns true. (checks if num onscreen missiles is == certain 
+            //threshold for spawning more)
+            //This function should overwrite the missile entries that went out of bounds, for the current num_missiles allowed on screen for the curent round.
+
+            //Depending on the round, some or all of the slots in the missile_array will be used.
+        }
+       
+
+
 
         //Erase the cursor from the previous frame.
         erase_old_cursor(screenCursor, pixel_buffer_address);
@@ -569,7 +603,7 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
             //Bounds-clamping - for newly computed positions.
             if (missile_array[i].x_pos <= 0) {
                 missile_array[i].x_pos == -1;
-                missile_array[i].in_bound = 0;
+                missile_array[i].in_bound = 0; //to notify clear_missiles on next while loop iteration in main that the missile is now out of bounds
             }
             if (missile_array[i].x_pos >= XMAX) {
                 missile_array[i].x_pos == XMAX + 1;
@@ -673,6 +707,53 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
        
     }*/
 }
+
+
+//Currently 5 levels
+int determine_num_missiles(int round_num) { //Returns max num_missiles allowed on screen at a time per round#.
+    int num_missiles = 1;
+    switch (round_num) {
+        case 0:
+            num_missiles = 5;
+            break;
+        case 1:
+            num_missiles = 6;
+            break;
+        case 2:
+            num_missiles = 7;
+            break;
+        case 3:
+            num_missiles = 8;
+            break;
+        case 4:
+            num_missiles = 9;
+            break;
+        case 5:
+            num_missiles = 10;
+            break;
+        default:
+            printf("Invalid level.\n");
+            break;
+    }
+    printf("Round: %d with num_missiles (on screen at a time): %d\n", round_num, num_missiles);
+    return num_missiles;
+}
+
+
+void add_missiles(int *num_missiles, Missile *missile_array, short int *colour, volatile int pixel_buffer_address){ 
+    //Add more missiles to the missile_array for the current round. Make sure to check entries only with in_bound = 2. 
+    //Then set to 1 after!
+
+}
+
+
+bool missiles_on_screen_check(int *num_missiles) { //Check how many missiles are on screen right now. 
+    //Return true if within threshold to draw more. Else, (i.e. still a lot on screen), return false.
+
+
+
+}
+
 
 bool inBounds(int x, int y) {
     if ((x >= 0 && x <= XMAX) && (y >= 0 && y <= YMAX))
