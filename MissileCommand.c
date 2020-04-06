@@ -69,6 +69,8 @@ struct Missile {
     double y_old2;
     short int colour; //Colour of missile
     int in_bound; //0 if not in bounds; 1 if in bounds; 2 if JUST went out of bounds (for clear_missiles)
+    //Note if set to bool, then graphics work fine. when set to 2, = true;
+    //But when int, then frame flickers on bound.
 };
 
 typedef struct Missile Missile;
@@ -188,24 +190,6 @@ int main(void)
         //Erase the old position of all the missiles - FIX.
         clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address);
 
-        //Erase the cursor from the previous frame.
-        erase_old_cursor(screenCursor, pixel_buffer_address);
-
-        //Poll keyboard input.
-        mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
-
-        //Process the input to update game variables.
-        updateCursorMovementDirection(&screenCursor, readBytes);
-        updateCursorPosition(&screenCursor);
-
-        //Draw new graphics.
-        draw_cursor(screenCursor, pixel_buffer_address);
-
-        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
-
-
-        //Had this immediately after clear_missiles - but was flashy like this one
-
         //ROUND LOGIC------------------------------------------
         //CHECK IF ROUND OVER (i.e. #of collisions with player > some_max)
         //If yes, reset to round 0 (round_num = 0;
@@ -220,7 +204,6 @@ int main(void)
         
         //DETERMINE IF WE NEED TO ADD MORE MISSILES TO THE SCREEN - for the CURRENT ROUND.
         //Check how many missiles are on screen. 
-
         add_more_missiles = missiles_on_screen_check(&num_missiles, missile_array, &spawn_threshold);
         if (num_missiles != 5) printf("num_missiles: %d\n", num_missiles);
         
@@ -238,6 +221,21 @@ int main(void)
         }
     
         //-------------------------------------
+
+        //Erase the cursor from the previous frame.
+        erase_old_cursor(screenCursor, pixel_buffer_address);
+
+        //Poll keyboard input.
+        mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
+
+        //Process the input to update game variables.
+        updateCursorMovementDirection(&screenCursor, readBytes);
+        updateCursorPosition(&screenCursor);
+
+        //Draw new graphics.
+        draw_cursor(screenCursor, pixel_buffer_address);
+
+        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
 
         //Synchronize with the VGA display and swap the front and back pixel buffers.
         wait_for_vsync(pixel_ctrl_ptr); // swap front and back buffers on VGA vertical sync
@@ -556,10 +554,6 @@ void compute_missiles(Missile *missile_array, int num_missiles, double x_target,
         //If adding_missiles == false - we are creating new missiles at EVERY indice in the array because a new wave has started.
         
         if (adding_missiles == false || (adding_missiles == true && missile_array[i].in_bound == 2)) {
-            //Run this code for EVERY missile if adding_missiles is true.
-            //If adding_missiles is false, and the current index has a missile that is out of bounds, then run this code for
-            //the current missile!
-    
             //Initialize all previous position data to 0
             missile_array[i].in_bound = 1; //1 means in bound
             missile_array[i].x_old = 0;
@@ -594,7 +588,6 @@ void compute_missiles(Missile *missile_array, int num_missiles, double x_target,
             
             path_time = FPS*sqrt(path_time_x*path_time_x + path_time_y*path_time_y); //Path time it will take
             //to go from start x,y to end x,y - at constrained x,y random velocities - with maximums set by the user in pixels/sec.
-
 
             missile_array[i].x_vel = dx / path_time;
             missile_array[i].y_vel = dy / path_time;
@@ -670,13 +663,11 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
     for (int i = 0; i < num_missiles; i++) {
         if (missile_array[i].in_bound == 2) { //Don't draw anything for this missile - it went out of bounds.
             //notInFunction(pixel_buffer_address, 1);
-            // draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
-            // draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, colour_to_paint, pixel_buffer_address);
-            
         }
         else if (missile_array[i].in_bound == 0) { //If at the boundary:
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
                 //inFunction(pixel_buffer_address, 1); //DIAG
+                printf("At boundary\n");
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
