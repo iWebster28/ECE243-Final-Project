@@ -75,6 +75,30 @@ struct Missile {
 
 typedef struct Missile Missile;
 
+//The AntiAirRocket struct used to describe the missiles fired by the player to 
+//defend the cities.
+struct AntiAirRocket
+{
+    //The current coordinates of the anti-air rocket.
+    int x;
+    int y;
+
+    //The old coordinates of the anti-air rocket.
+    int xOld, yOld;
+
+    //The final coordinates of the anti-air rocket, that is, where it is moving towards
+    //after being fired from the missile platform.
+    int xFinal;
+    int yFinal;
+
+    //The colour of the anti-air missile.
+    short int colour;
+
+
+};
+
+typedef struct AntiAirRocket AntiAirRocket;
+
 
 
 /*******Helper functions declared.*******/
