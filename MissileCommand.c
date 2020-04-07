@@ -253,7 +253,7 @@ int main(void)
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
         //Draws the coloured outline of a circle of radius r centered at x, y.
-        //draw_circle(9, 100, 100, 0xFFFF, pixel_buffer_address);
+        draw_circle(9, 100, 100, 0xFFFF, pixel_buffer_address);
 
         //Poll keyboard input.
         mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
@@ -344,61 +344,53 @@ void draw_line(int x0, int y0, int x1, int y1, short int line_color,
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
                     volatile int pixel_buffer_address)
 {
-    //The coordinates of the point currently being drawn.
+    //The coordinates of the point currently being drawn relative to the centre of the circle.
     int x, y;
 
     //The decision parameter used by Bresenham's Algorithm to determine
     //when to change either the x or y value.
     int d = 3 - 2 * r;              //This is the initial value of d used by the algorithm.
 
-    //The second octant of the circle is sweeped out, and the points
+    //The seventh octant of the circle is sweeped out, and the points
     //on the circle for that octant calculated. By using symmetry, the points
-    //in the other 7 octants are drawn simultaneously as points in the first octant
+    //in the other 7 octants are drawn simultaneously as points in the seventh octant
     //are found.
-    y = y0 - r;
-    for (x = x0; (x - x0) <= (y0 - y); x++)
+    y = r;
+    for (x = 0; x <= y; x++)
     {
         //Plot the current point in this octant.
-        plot_pixel(x, y, colour, pixel_buffer_address);
+        plot_pixel(x + x0, y + y0, colour, pixel_buffer_address);
 
-        //Plot its symmetrical equivalent in the first octant.
+        //Plot its symmetrical equivalent in the eighth octant.
         //Switch the value used for x and y to accomplish this.
-        plot_pixel(y, x, colour, pixel_buffer_address);
+        plot_pixel(y + y0, x + x0, colour, pixel_buffer_address);
 
         //Repeat the process for the other 3 quadrants.
 
-        //Second quadrant.
-        plot_pixel(-x, y, colour, pixel_buffer_address);
-        plot_pixel(y, -x, colour, pixel_buffer_address);
-
         //Third quadrant.
-        plot_pixel(-x, -y, colour, pixel_buffer_address);
-        plot_pixel(-y, -x, colour, pixel_buffer_address);
+        plot_pixel(-x + x0, y + y0, colour, pixel_buffer_address);
+        plot_pixel(y + y0, -x + x0, colour, pixel_buffer_address);
 
-        //Fourth quadrant.
-        plot_pixel(x, -y, colour, pixel_buffer_address);
-        plot_pixel(-y, x, colour, pixel_buffer_address);
+        //Second quadrant.
+        plot_pixel(-x + x0, -y + y0, colour, pixel_buffer_address);
+        plot_pixel(-y + y0, -x + x0, colour, pixel_buffer_address);
+
+        //First quadrant.
+        plot_pixel(x + x0, -y + y0, colour, pixel_buffer_address);
+        plot_pixel(-y + y0, x + x0, colour, pixel_buffer_address);
 
         //Now, find the coordinates of (x,y) for the next iteration of the loop.
         //Depending on if d is less than 0 or greater than 0, y may be incremented.
         //x is always incremented by the loop.
         //Also, adjust d for the next iteration of the loop.
         if (d < 0)
-        {
-            d = d + 4 * (x + 1 - x0) + 6;
-
-
-        }
+            d = d + 4 * (x + 1) + 6;
         else
         {
             y--;
-            d = d + 4 * ( ( x + 1 - x0) - (y0 - y) ) + 10;
-
+            d = d + 4 * ( (x + 1) - y) + 10;
         }
-
     }
-
-   
 
     return;
 }
