@@ -252,6 +252,7 @@ struct Missile {
     int in_bound; //0 if not in bounds; 1 if in bounds; 2 if JUST went out of bounds (for clear_missiles)
     //Note if set to bool, then graphics work fine. when set to 2, = true;
     //But when int, then frame flickers on bound.
+    int num_redraws_at_bound; //tracking to know wen to add more missiles to array or not
 };
 
 typedef struct Missile Missile;
@@ -390,8 +391,8 @@ int main(void)
     double y_target = 239;
     //Max velocities in pixels/sec (Framerate already taken into account in code.)
     //Note: these will just be computed as one max velocity.
-    int x_vel_max = 500; //pos or neg. direction
-    int y_vel_max = 500; 
+    int x_vel_max = 150; //pos or neg. direction
+    int y_vel_max = 150; 
     short int colour = red; //temp
     
     //Round 0: determine how many missiles on screen allowed at a time.
@@ -457,17 +458,8 @@ int main(void)
         //Check how many missiles are on screen. 
         add_more_missiles = missiles_on_screen_check(&num_missiles, missile_array, &spawn_threshold);
         //if (num_missiles != 5) printf("num_missiles: %d\n", num_missiles);
-
-
-        //DOESN'T WORK YET
-        //Don't add more missiles if we still have to clear 1 more frame of a missile at the boundary.
-         for (int i = 0 ; i < num_missiles; i++) {
-            if (missile_array[i].x_pos == (XMAX + 1 + SIZE_MISSILE) || missile_array[i].y_pos == (YMAX + 1 + SIZE_MISSILE)) {
-                add_more_missiles = false;
-            }
-        }
         
-        if (add_more_missiles) printf("Adding more missiles!\n");
+        //if (add_more_missiles) printf("Adding more missiles!\n");
         if (add_more_missiles) {
             num_missiles = determine_num_missiles(round_num, &spawn_threshold);
             compute_missiles(missile_array, num_missiles, x_target, y_target, x_vel_max, y_vel_max, colour, pixel_buffer_address, add_more_missiles);
@@ -915,8 +907,9 @@ void compute_missiles(Missile *missile_array, int num_missiles, double x_target,
         //the missiles have gone out of bounds!
         //If adding_missiles == false - we are creating new missiles at EVERY indice in the array because a new wave has started.
         
-        if (adding_missiles == false || (adding_missiles == true && missile_array[i].in_bound == 2)) {
+        if (adding_missiles == false || (adding_missiles == true && missile_array[i].in_bound == 2 && missile_array[i].num_redraws_at_bound == 2)) {
             //Initialize all previous position data to 0
+            missile_array[i].num_redraws_at_bound = 0;
             missile_array[i].in_bound = 1; //1 means in bound
             missile_array[i].x_old = 0;
             missile_array[i].y_old = 0;
@@ -1032,8 +1025,8 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
         else if (missile_array[i].in_bound == 0) { //If at the boundary:
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
                 //inFunction(pixel_buffer_address, 1); //DIAG
-                printf("At boundary, missile %d\n", i);
-                printf("clearing: (x, y): %f, %f\n", missile_array[i].x_old2, missile_array[i].y_old2);
+                //printf("At boundary, missile %d\n", i);
+                //printf("clearing: (x, y): %f, %f\n", missile_array[i].x_old2, missile_array[i].y_old2);
                 draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, colour_to_paint, pixel_buffer_address);
             }
             if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
@@ -1042,6 +1035,7 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             missile_array[i].in_bound = 2; //prevent drawing again.
             missile_array[i].x_pos += SIZE_MISSILE;
             missile_array[i].x_pos += SIZE_MISSILE;
+            missile_array[i].num_redraws_at_bound++; //once equals 2, then can add more missiles.
 
 
         } else if (missile_array[i].in_bound == 1) { //if in bounds
@@ -1053,45 +1047,6 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             }
         }
     }
-    
-    /*
-    for (int i = 0; i < num_missiles; i++) {
-        if (missile_array[i].x_pos == XMAX || missile_array[i].x_pos == 0 || missile_array[i].y_pos == YMAX) { //missile_array[i].in_bound == 0
-            //Clear current pos.
-            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, trail_colour_1, pixel_buffer_address);
-
-            if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                inFunction(pixel_buffer_address, 1); //DIAG
-                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour_1, pixel_buffer_address);
-            }
-            if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
-                inFunction(pixel_buffer_address, 1); //DIAG
-                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour_1, pixel_buffer_address);
-            }
-            missile_array[i].in_bound = 2; //2 means "went out of bounds, and need to clear an extra frame. (the "current position")"
-            missile_array[i].x_pos = XMAX + 1; //to make out of bounds. Therefore, draw_missiles_and_update won't update position, and this 'if' won't draw again.
-            missile_array[i].y_pos = YMAX + 1;
-
-        } else if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos)) { //if still in bounds of screen.
-            if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
-                inFunction(pixel_buffer_address, 2); //DIAG
-                draw_enemy_missile(missile_array[i].x_old2, missile_array[i].y_old2, trail_colour_2, pixel_buffer_address);
-            }
-            if (inBounds(missile_array[i].x_old, missile_array[i].y_old)) { //clear last frame
-                //inFunction(pixel_buffer_address, 2); //DIAG
-                draw_enemy_missile(missile_array[i].x_old, missile_array[i].y_old, trail_colour_2, pixel_buffer_address);
-            }
-        //Prevent the IFs from drawing after the last 2 positions were cleared, and the missile is off-screen.
-        //if (inBounds(missile_array[i].x_pos, missile_array[i].y_pos) == false)  //If x and y not on screen, then don't draw!
-        //    missile_array[i].in_bound = false;
-        } else {
-            notInFunction(pixel_buffer_address, 1); //DIAG
-            notInFunction(pixel_buffer_address, 2);
-        }
-        
-        //missile_array[i].in_bound = 2;
-       
-    }*/
 }
 
 
@@ -1100,8 +1055,8 @@ int determine_num_missiles(int round_num, int *spawn_threshold) { //Returns max 
     int num_missiles = 1;
     switch (round_num) {
         case 0:
-            num_missiles = 3;
-            *spawn_threshold = 0; //when there's 3 missiles left, can spawn more!
+            num_missiles = 5;
+            *spawn_threshold = 3; //when there's 3 missiles left, can spawn more!
             break;
         case 1:
             num_missiles = 6;
