@@ -104,15 +104,24 @@ typedef struct AntiAirRocket AntiAirRocket;
 /*******Helper functions declared.*******/
 
 //Drawing functions.
+
+//General Drawing.
 void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_address);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color, 
                 volatile int pixel_buffer_address);
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
                     volatile int pixel_buffer_address);
-void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
-void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
+
+//Game Object Drawing.
+void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
+void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address);
+
+//City Drawing.
+void draw_San_Francisco(int xStart, int yStart, volatile int pixel_buffer_address);
+
+
 
 //Missile Functions
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address, bool adding_missiles);
@@ -142,6 +151,7 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 void swap(int* first, int* second);
 int abs_diff(int first, int second);
 double randDouble(double min, double max);
+short int convertColourTo16Bit(int colour24Bit);
 
 
 
@@ -263,7 +273,7 @@ int main(void)
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
         //Draws the coloured outline of a circle of radius r centered at x, y.
-        draw_circle(9, 100, 100, 0xFFFF, pixel_buffer_address);
+        draw_circle(10, 100, 100, convertColourTo16Bit(0xFF5628), pixel_buffer_address);
 
         //Poll keyboard input.
         mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
@@ -288,6 +298,9 @@ int main(void)
 /******Helper functions implemented.******/
 
 //Drawing functions.
+
+
+//General Drawing.
 
 //Plots a single pixel of specified colour at an (x, y) coordinate on the screen.
 void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_address)
@@ -354,6 +367,10 @@ void draw_line(int x0, int y0, int x1, int y1, short int line_color,
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
                     volatile int pixel_buffer_address)
 {
+    //If the radius is less than 0, don't do anything.
+    if (r < 0)
+        return;
+
     //The coordinates of the point currently being drawn relative to the centre of the circle.
     int x, y;
 
@@ -406,6 +423,40 @@ void draw_circle(unsigned int r, int x0, int y0, short int colour,
 }
 
 
+//Writes a black pixel to every pixel on the screen, essentially "clearing" it.
+void clear_screen(volatile int pixel_buffer_address)
+{
+	for (int y = 0; y <= YMAX; y++)
+		for (int x = 0; x <= XMAX; x++)
+			plot_pixel(x, y, 0, pixel_buffer_address);
+	
+	return;
+}
+
+//Does not return until the VGA controller indicates a VSync has occurred. Swaps the front
+//and back pixel buffers.
+void wait_for_vsync(volatile int * pixel_ctrl_ptr)
+{
+	//Request a buffer swap.
+	*(pixel_ctrl_ptr) = 1;
+	
+	//A sync has occurred if the value of the S bit in the Status register of the pixel 
+    //controller is set to 0.
+	register char syncOccurred = !( *(pixel_ctrl_ptr + 3) & 0b1 );
+	
+	//Wait for the sync to occur.
+	while (!syncOccurred)
+	{
+		syncOccurred = !( *(pixel_ctrl_ptr + 3) & 0b1 );
+	}
+	
+	return;
+}
+
+
+//Game Object Drawing.
+
+
 //Draws the cursor on the screen.
 void draw_cursor(Cursor screenCursor, volatile int pixel_buffer_address)
 {
@@ -440,34 +491,25 @@ void erase_old_cursor(Cursor screenCursor, volatile int pixel_buffer_address)
     return;
 }
 
-//Writes a black pixel to every pixel on the screen, essentially "clearing" it.
-void clear_screen(volatile int pixel_buffer_address)
-{
-	for (int y = 0; y <= YMAX; y++)
-		for (int x = 0; x <= XMAX; x++)
-			plot_pixel(x, y, 0, pixel_buffer_address);
-	
-	return;
-}
+//City Drawing Functions.
 
-//Does not return until the VGA controller indicates a VSync has occurred. Swaps the front
-//and back pixel buffers.
-void wait_for_vsync(volatile int * pixel_ctrl_ptr)
+void draw_San_Francisco(int xStart, int yStart, volatile int pixel_buffer_address)
 {
-	//Request a buffer swap.
-	*(pixel_ctrl_ptr) = 1;
-	
-	//A sync has occurred if the value of the S bit in the Status register of the pixel 
-    //controller is set to 0.
-	register char syncOccurred = !( *(pixel_ctrl_ptr + 3) & 0b1 );
-	
-	//Wait for the sync to occur.
-	while (!syncOccurred)
-	{
-		syncOccurred = !( *(pixel_ctrl_ptr + 3) & 0b1 );
-	}
-	
-	return;
+    //This function draws the San Francisco texture in the game.
+    //xStart, yStart notate the location of the bottom left pixel of the texture
+    //on the screen.
+
+    //1) Draw the Golden Gate Bridge.
+    short int bridgeColour;
+
+    //2) Draw the TransAmerica Pyramid.
+
+
+    //3) Draw the Salesforce Tower.
+
+
+
+    return;
 }
 
 
@@ -980,4 +1022,23 @@ double randDouble(double min, double max) {
     double divisor = RAND_MAX / range; //
     return min + (rand() / divisor); 
 
+}
+
+//A convert colour function, which converts 24-bit colours to the best 16-bit colour equivalent.
+//Conversion formula based on the following:
+//https://www.demmel.com/ilcd/help/24BitColorValues.htm
+short int convertColourTo16Bit(int colour24Bit)
+{
+    //Get a pointer that can acess individual colours of the 24-bit colour value.
+    char * individualColourPtr = (char *) &colour24Bit;
+
+    //Grab the red, green, and blue components of the 24-bit colour.
+    char blue = *individualColourPtr;
+    char green = *(individualColourPtr + 1);
+    char red = *(individualColourPtr + 2);
+
+    //Place the RGB colour bytes in the spots for those colours in a 16-bit encoding format.
+    short int colour16Bit = ( (red >> 3) << 11) + ( (green >> 2) << 5) + (blue >> 3);
+
+    return colour16Bit;
 }
