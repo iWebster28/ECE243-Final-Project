@@ -14,6 +14,7 @@
 
 //Global
 volatile int * led_ctrl_ptr = (int *)0xFF200000;
+int score = 0;
 
 #define FPS 60 //Framerate
 
