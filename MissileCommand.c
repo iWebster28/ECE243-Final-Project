@@ -371,6 +371,8 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 void updateExplosion(Explosion * explosion);
 
 //Miscallaneous functions.
+void beep();
+void explosion_sound();
 void swap(int* first, int* second);
 int abs_diff(int first, int second);
 double randDouble(double min, double max);
@@ -1200,7 +1202,8 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             if (missile_array[i].destroyed) {
                 //Call Eric's chain-reaction explosion function again.
                 //draw_line(100, 200, 120, 200, blue, pixel_buffer_address);
-                //print("HIT");
+                //printf("HIT");
+                explosion_sound();
             }
 
 
@@ -1365,6 +1368,38 @@ void notInFunction(volatile int pixel_buffer_address, int led_to_light) {
 
 
 //Miscallaneous functions.
+
+//Beep function
+void beep() {
+    unsigned int fifospace;
+	volatile int * audio_ptr = (int *) 0xFF203040; //Base address for audio port
+
+	int duration = 500;
+	
+	for (int i = 0; i < duration; i++) {
+		fifospace = *(audio_ptr+1); //Read the FIFOSPACE register (holds read AND write data)
+		if ((fifospace & 0x000000FF) > 0 &&	//Make sure the read space is free.
+			(fifospace & 0x00FF0000) > 0 &&	//Make sure R write space is free
+			(fifospace & 0xFF000000) > 0) //Make sure L write space is free
+		{
+			int sample = *(audio_ptr + 3);	//Get sample data from R CH (MIC)
+			*(audio_ptr + 2) = sample; //Write to L and R CH
+			*(audio_ptr + 3) = sample;
+		}
+	}
+}
+
+//Explosion sound
+void explosion_sound() {
+    int num_beeps = 10;
+    int delay = 1000;
+
+    for (int j = 0; j < num_beeps; j++) {
+        for (int i = 0; i < delay; i++) {}
+        beep();
+    }
+
+}
 
 //A swap function, which swaps the value stored by two integer variables.
 void swap(int* first, int* second)

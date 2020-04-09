@@ -24,21 +24,19 @@ int main()
 {
 	unsigned int fifospace;
 	volatile int * audio_ptr = (int *) 0xFF203040; //Base address for audio port
-	
-	int apple = 0;
 
-	while (1) //Loop forever
-	{
+	int duration = 500;
+	
+	for (int i = 0; i < duration; i++) {
 		fifospace = *(audio_ptr+1); //Read the FIFOSPACE register (holds read AND write data)
 		if ((fifospace & 0x000000FF) > 0 &&	//Make sure the read space is free.
 			(fifospace & 0x00FF0000) > 0 &&	//Make sure R write space is free
 			(fifospace & 0xFF000000) > 0) //Make sure L write space is free
 		{
-			//apple = !apple;
-			//Need delay...
-			int sample = //*(audio_ptr + 3);	//Get sample data from R CH (MIC)
+			int sample = *(audio_ptr + 3);	//Get sample data from R CH (MIC)
 			*(audio_ptr + 2) = sample; //Write to L and R CH
 			*(audio_ptr + 3) = sample;
 		}
+	
 	}
 }
