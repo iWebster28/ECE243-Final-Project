@@ -490,6 +490,8 @@ int main(void)
         }
         
 
+
+
         //draw_explosion(testExplosion, pixel_buffer_address);
         //updateExplosion(&testExplosion);
 
@@ -1070,6 +1072,66 @@ void updateExplosion(Explosion * explosion)
     return;
 }
 
+
+
+//Creates a new AntiAirRocket if the space bar was pressed.
+AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[])
+{
+    //Check if the space bar was pressed.
+    for (int i = PS2INPUTBYTES - 1; i >=0; i--)
+    {
+        if (readBytes[i] == 0x29)
+        {
+            AntiAirRocket * newAntiAir = (AntiAirRocket *) malloc( sizeof(AntiAirRocket) );
+            newAntiAir->colour == 0xF280;
+
+            //Determine the xStart location for the rocket based off of the centre of the
+            //closest city.
+            if (screenCursor.x <= 70)
+            {
+                //Fire from SF.
+                newAntiAir->xStart = 40;
+            }
+            else if (screenCursor.x <= 130)
+            {
+                //Fire from Seattle.
+                newAntiAir->xStart = 100;
+            }
+            else if (screenCursor.x <= 190)
+            {
+                //Fire from Chicago.
+                newAntiAir->xStart = 160;
+            }
+            else if (screenCursor.x <= 250)
+            {
+                //Fire from Toronto.
+                newAntiAir->xStart = 220;
+            }
+            else
+            {
+                //Fire from New York.
+                newAntiAir->xStart = 280;
+            }
+            
+            newAntiAir->yStart = YMAX;
+
+            newAntiAir->xFinal = screenCursor.x;
+            newAntiAir->yFinal = screenCursor.y;
+
+            newAntiAir->x = newAntiAir->xStart;
+            newAntiAir->y = newAntiAir->yStart;
+            
+            newAntiAir->xOld = newAntiAir->x;
+            newAntiAir->yOld = newAntiAir->y;
+
+
+            return newAntiAir
+        }
+    }
+            
+    //Space was not pressed -- return NULL.
+    return NULL;
+}
 
 
 
