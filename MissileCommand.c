@@ -15,6 +15,7 @@
 //Global
 volatile int * led_ctrl_ptr = (int *)0xFF200000;
 int score = 0;
+int compute_missiles_calls = 0;
 
 #define FPS 60 //Framerate
 
@@ -476,18 +477,15 @@ int main(void)
         //Erase the old position of all the missiles - FIX.
         clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address);
 
-        //ROUND LOGIC------------------------------------------
-        //CHECK IF ROUND OVER (i.e. #of collisions with player > some_max)
-        //If yes, reset to round 0 (round_num = 0;
+        //INCREMENT MISSILE SPEED ------------------------------------------
+        //check if compute_missiles has been called enough times to increment the round
+        if (compute_missiles_calls % 5 == 0) { //Every 5 calls to compute_missiles: increment the max missile speed.
+            //Just increment speed of missiles
+            x_vel_max += 50;
+            y_vel_max += 50;
+            compute_missiles_calls = 1;
+        }
 
-        //else, see if we can change to NEXT ROUND:
-        //check if certain time has passed? or maybe if add_missiles has been called enough times. 
-        //Then: round_num++; 
-        //num_missiles = determine_num_missiles(int round_num); //udpate num missiles for this round
-        //then call compute_missiles(num_missiles as determined by round_num)
-        //compute_missiles should be called at the start of every round. Will overwrite/create an entirely new batch of missiles. 
-        //(for loop for num_missiles times.)
-        
         //DETERMINE IF WE NEED TO ADD MORE MISSILES TO THE SCREEN - for the CURRENT ROUND.
 
         //Check how many missiles are on screen. 
@@ -971,7 +969,7 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 
 //This function creates multiple missiles according to the parameters it is fed.
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address, bool adding_missiles) {
-   
+    compute_missiles_calls++;
     int y_vel_min = 100; //this is actually just the weighted component minimum. (x and y make up total velocity)
 
     //Colours array
