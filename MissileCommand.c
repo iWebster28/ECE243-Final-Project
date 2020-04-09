@@ -250,9 +250,8 @@ struct Missile {
     double y_old2;
     short int colour; //Colour of missile
     int in_bound; //0 if not in bounds; 1 if in bounds; 2 if JUST went out of bounds (for clear_missiles)
-    //Note if set to bool, then graphics work fine. when set to 2, = true;
-    //But when int, then frame flickers on bound.
     int num_redraws_at_bound; //tracking to know wen to add more missiles to array or not
+    bool destroyed;
 };
 
 typedef struct Missile Missile;
@@ -476,6 +475,9 @@ int main(void)
 
         //-------------------------------------
 
+        //Draw new missile positions
+        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
+
         //Erase the cursor from the previous frame.
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
@@ -488,8 +490,6 @@ int main(void)
 
         //Draw new graphics.
         draw_cursor(screenCursor, pixel_buffer_address);
-
-        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
 
         //Synchronize with the VGA display and swap the front and back pixel buffers.
         wait_for_vsync(pixel_ctrl_ptr); // swap front and back buffers on VGA vertical sync
@@ -934,6 +934,7 @@ void compute_missiles(Missile *missile_array, int num_missiles, double x_target,
         
         if (adding_missiles == false || (adding_missiles == true && missile_array[i].in_bound == 2 && missile_array[i].num_redraws_at_bound == 2)) {
             //Initialize all previous position data to 0
+            missile_array[i].destroyed = false;
             missile_array[i].num_redraws_at_bound = 0;
             missile_array[i].in_bound = 1; //1 means in bound
             missile_array[i].x_old = 0;
@@ -1012,6 +1013,7 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
                 missile_array[i].y_pos = (double) YMAX + 1;
                 missile_array[i].in_bound = 0;
             }
+
         } else { //not in bounds.
             //missile_array[i].in_bound = 0;
         }
@@ -1047,7 +1049,7 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
         if (missile_array[i].in_bound == 2) { //Don't draw anything for this missile - it went out of bounds.
             //notInFunction(pixel_buffer_address, 1);
         }
-        else if (missile_array[i].in_bound == 0) { //If at the boundary:
+        else if (missile_array[i].in_bound == 0 || missile_array[i].destroyed) { //If at the boundary:
             if (inBounds(missile_array[i].x_old2, missile_array[i].y_old2)) { //clear 2nd last frame
                 //inFunction(pixel_buffer_address, 1); //DIAG
                 //printf("At boundary, missile %d\n", i);
