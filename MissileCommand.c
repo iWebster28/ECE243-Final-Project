@@ -272,6 +272,10 @@ struct AntiAirRocket
     //The old coordinates of the anti-air rocket.
     int xOld, yOld;
 
+    //The start coordinates of the anti-air rocket (where it was fired from).
+    int xStart;
+    int yStart;
+
     //The final coordinates of the anti-air rocket, that is, where it is moving towards
     //after being fired from the missile platform.
     int xFinal;
@@ -372,6 +376,8 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 void initializeExplosion(Explosion * explosionPtr, int x0, int y0, int rMax, int peakDuration);
 void updateExplosion(Explosion * explosion);
 
+AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[]);
+
 //Miscallaneous functions.
 void beep();
 void explosion_sound();
@@ -453,8 +459,8 @@ int main(void)
 
 
 
-    Explosion testExplosion;
-    initializeExplosion(&testExplosion, 40, 100, 25, 10);
+    //Explosion testExplosion;
+    //initializeExplosion(&testExplosion, 40, YMAX, 30, 10);
 
     //The main loop of the program.
     while (1)
@@ -483,8 +489,9 @@ int main(void)
             cityDrawingCount++;
         }
         
-        draw_explosion(testExplosion, pixel_buffer_address);
-        updateExplosion(&testExplosion);
+
+        //draw_explosion(testExplosion, pixel_buffer_address);
+        //updateExplosion(&testExplosion);
 
 
         //Clear previous graphics.
@@ -667,21 +674,21 @@ void draw_circle(unsigned int r, int x0, int y0, short int colour,
 
         //Plot its symmetrical equivalent in the eighth octant.
         //Switch the value used for x and y to accomplish this.
-        plot_pixel(y + y0, x + x0, colour, pixel_buffer_address);
+        plot_pixel(y + x0, x + y0, colour, pixel_buffer_address);
 
         //Repeat the process for the other 3 quadrants.
 
         //Third quadrant.
         plot_pixel(-x + x0, y + y0, colour, pixel_buffer_address);
-        plot_pixel(y + y0, -x + x0, colour, pixel_buffer_address);
+        plot_pixel(y + x0, -x + y0, colour, pixel_buffer_address);
 
         //Second quadrant.
         plot_pixel(-x + x0, -y + y0, colour, pixel_buffer_address);
-        plot_pixel(-y + y0, -x + x0, colour, pixel_buffer_address);
+        plot_pixel(-y + x0, -x + y0, colour, pixel_buffer_address);
 
         //First quadrant.
         plot_pixel(x + x0, -y + y0, colour, pixel_buffer_address);
-        plot_pixel(-y + y0, x + x0, colour, pixel_buffer_address);
+        plot_pixel(-y + x0, x + y0, colour, pixel_buffer_address);
 
         //Now, find the coordinates of (x,y) for the next iteration of the loop.
         //Depending on if d is less than 0 or greater than 0, y may be incremented.
