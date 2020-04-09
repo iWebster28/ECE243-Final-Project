@@ -1310,6 +1310,10 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
                 //draw_line(100, 200, 120, 200, blue, pixel_buffer_address);
                 //printf("HIT");
                 explosion_sound();
+                Explosion testExplosion;
+                initializeExplosion(&testExplosion, missile_array[i].x_pos, missile_array[i].y_pos, 30, 10);
+                draw_explosion(testExplosion, pixel_buffer_address);
+                updateExplosion(&testExplosion);
             }
 
 
