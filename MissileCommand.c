@@ -283,6 +283,31 @@ typedef struct AntiAirRocket AntiAirRocket;
 
 
 
+//The Explosion struct used to describe the explosion animation.
+struct Explosion
+{
+    //The location of the centre of the explosion.
+    int x0, y0;
+
+    //The current radius of the explosion.
+    int rc;
+
+    //The final radius of the explosion.
+    int rf;
+
+    //A flag used to indicate different drawing behaviour for different frame buffers.
+    //This should in effect give a "flashing" appearance to the explosion.
+    char frameBufferCounter;
+
+    //How long the explosion remains at its peak radius before decreasing, in seconds.
+    float peakDuration;
+};
+
+typedef struct Explosion Explosion;
+
+
+
+
 /*******Helper functions declared.*******/
 
 //Drawing functions.
@@ -295,6 +320,10 @@ void draw_line(int x0, int y0, int x1, int y1, short int line_color,
                 volatile int pixel_buffer_address);
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
                     volatile int pixel_buffer_address);
+
+void draw_explosion(Explosion * explosion, volatile int pixel_buffer_address);
+
+
 void clear_screen(volatile int pixel_buffer_address);
 void wait_for_vsync(volatile int * pixel_ctrl_ptr);
 
@@ -648,6 +677,30 @@ void draw_circle(unsigned int r, int x0, int y0, short int colour,
     }
 
     return;
+}
+
+
+
+//Draws the explosion animation for a specified explosion.
+//Also handles updating variables within the Explosion struct so the animation
+//draws sequentially. The idea here is that the explosion is an "animation" rather than
+//a "game object", so "drawing it" should encapsulate all the functionality related to
+//making the animation work properly.
+void draw_explosion(Explosion * explosion, volatile int pixel_buffer_address)
+{
+    for (int i = 0; i <= explosion->rc; i++)
+    {
+        //Depending on the frame buffer, draw the explosion with a different colour.
+        //This will give a natural flashing effect to it.
+
+        if (explosion->frameBufferCounter % 2 == 0)
+            draw_circle(i, explosion->x0, explosion->y0, 0xF780, pixel_buffer_address);
+        else
+            draw_circle(i, explosion->x0, explosion->y0, 0xF380, pixel_buffer_address);
+        
+
+    }
+
 }
 
 
