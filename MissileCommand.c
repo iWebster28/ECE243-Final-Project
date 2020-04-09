@@ -567,13 +567,11 @@ int main(void)
 
         
         if (isExplosion == false)
-            testExplosion = initializeAntiAirRocket(screenCursor, readBytes);
-
-        if (firedMissile != NULL)
         {
-            //If a missile was fired, start a new explosion at the cursor location.
-            initializeExplosion(&testExplosion, firedMissile->xFinal, firedMissile->yFinal, 
-                                15, 10);
+            testExplosion = initializeAntiAirRocket(screenCursor, readBytes);
+            if (testExplosion.rf != 0);
+                isExplosion = true;
+
         }
         
         
@@ -582,13 +580,12 @@ int main(void)
         draw_explosion(testExplosion, pixel_buffer_address);
         updateExplosion(&testExplosion);
 
-/*
+
         if ((testExplosion.rc == 0) && (testExplosion.increasing == false))
         {
-                free(firedMissile);
-                firedMissile = NULL;
+                isExplosion = false;
         }
-*/
+
 
 
         updateCursorMovementDirection(&screenCursor, readBytes);
