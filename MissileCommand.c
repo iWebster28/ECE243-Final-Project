@@ -730,6 +730,11 @@ void draw_explosion(Explosion explosion, volatile int pixel_buffer_address)
     }
     else
     {
+        //If the explosion already has a current radius of 0, it is finished and no more
+        //drawing needs to be done.
+        if (explosion.rc == 0)
+            return;
+
         //Erase the concentric circles from the max radius to the current radius, then redraw
         //The remaining part of the explosion.
         for (int i = explosion.rf; i >= explosion.rc; i--)
