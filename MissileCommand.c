@@ -474,6 +474,9 @@ int main(void)
 
         //-------------------------------------
 
+        //Draw new missile positions
+        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
+
         //Erase the cursor from the previous frame.
         erase_old_cursor(screenCursor, pixel_buffer_address);
 
@@ -486,8 +489,6 @@ int main(void)
 
         //Draw new graphics.
         draw_cursor(screenCursor, pixel_buffer_address);
-
-        draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
 
         //Synchronize with the VGA display and swap the front and back pixel buffers.
         wait_for_vsync(pixel_ctrl_ptr); // swap front and back buffers on VGA vertical sync
