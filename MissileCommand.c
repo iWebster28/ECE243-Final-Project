@@ -352,7 +352,7 @@ void draw_city(int xStart, int yStart, char cityTexture[], volatile int pixel_bu
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address, bool adding_missiles);
 void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buffer_address);
 void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile int pixel_buffer_address);
-void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address);
+void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address, Explosion *missile_explosions);
 
 int determine_num_missiles(int round_num, int *spawn_threshold); //Returns max num_missiles allowed on screen at a time per round#. ALSO updates spawn threshold.
 void add_missiles(int num_missiles, Missile *missile_array, short int *colour, volatile int pixel_buffer_address); //Add more missiles to the missile_array for the current round. Make sure to check entries only with in_bound = 2. Then set to 1 after!
@@ -452,6 +452,9 @@ int main(void)
     bool add_more_missiles = false; //not addding extra missiles! Computing the starting wave, therefore set = false
     compute_missiles(missile_array, num_missiles, x_target, y_target, x_vel_max, y_vel_max, colour, pixel_buffer_address, add_more_missiles);
 
+    //Keep track of missile explosions - pass as pointer to clear_missiles
+    Explosion missile_explosions[N];
+
     //A char to keep track of if cities have been drawn on both buffers.
     //Ensures they are only drawn on the first two iterations of the game loop,
     //once for each buffer.
@@ -494,12 +497,17 @@ int main(void)
 
         //draw_explosion(testExplosion, pixel_buffer_address);
         //updateExplosion(&testExplosion);
+        
+        //Update explosion animations for the enemy missiles that were triggered
+        for (int i = 0; i < N; i++) {
+            updateExplosion(&missile_explosions[i]);
+        }
 
 
         //Clear previous graphics.
 
         //Erase the old position of all the missiles - FIX.
-        clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address);
+        clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address, missile_explosions);
 
         //INCREMENT MISSILE SPEED ------------------------------------------
         //check if compute_missiles has been called enough times to increment the round
@@ -1125,7 +1133,7 @@ AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readB
             newAntiAir->yOld = newAntiAir->y;
 
 
-            return newAntiAir
+            return newAntiAir;
         }
     }
             
@@ -1276,7 +1284,7 @@ void draw_enemy_missile(int x0, int y0, short int colour, volatile int pixel_buf
 }
 
 //Remove missiles from 2 frames ago! - THIS SHOULD NOT BE DRAWING AFTER A MISSILE LEAVES THE SCREEN...
-void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address) {
+void clear_missiles(int num_missiles, Missile *missile_array, short int colour, volatile int pixel_buffer_address, Explosion *missile_explosions) {
     short int colour_array[3] = {red, blue, green};
     //short int trail_colour_1 = blue; //colour_array[rand() % 3];
     //short int trail_colour_2 = green;
@@ -1303,12 +1311,15 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             if (missile_array[i].destroyed) {
                 //Call Eric's chain-reaction explosion function again.
                 //draw_line(100, 200, 120, 200, blue, pixel_buffer_address);
-                //printf("HIT");
+                printf("HIT");
                 explosion_sound();
-                Explosion testExplosion;
-                initializeExplosion(&testExplosion, missile_array[i].x_pos, missile_array[i].y_pos, 30, 10);
-                draw_explosion(testExplosion, pixel_buffer_address);
-                updateExplosion(&testExplosion);
+
+                initializeExplosion(&missile_explosions[i], missile_array[i].x_pos, missile_array[i].y_pos, 30, 10);
+                draw_explosion(missile_explosions[i], pixel_buffer_address);
+
+                //Print score to console output
+                score++; 
+                printf("Score: %d", score);
             }
 
 
