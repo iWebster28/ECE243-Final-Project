@@ -329,7 +329,7 @@ void draw_line(int x0, int y0, int x1, int y1, short int line_color,
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
                     volatile int pixel_buffer_address);
 
-void draw_explosion(Explosion * explosion, volatile int pixel_buffer_address);
+void draw_explosion(Explosion explosion, volatile int pixel_buffer_address);
 
 
 void clear_screen(volatile int pixel_buffer_address);
@@ -368,6 +368,8 @@ void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char readByt
 void initializeScreenCursor(Cursor * screenCursorPtr);
 void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readBytes[]);
 void updateCursorPosition(Cursor * screenCursorPtr);
+
+void initializeExplosion(Explosion * explosionPtr, int x0, int y0, int rMax, int peakDuration);
 void updateExplosion(Explosion * explosion);
 
 //Miscallaneous functions.
@@ -449,6 +451,11 @@ int main(void)
     //once for each buffer.
     char cityDrawingCount = 0;
 
+
+
+    Explosion testExplosion;
+    initializeExplosion(&testExplosion, 40, 100, 25, 10);
+
     //The main loop of the program.
     while (1)
     {
@@ -476,7 +483,8 @@ int main(void)
             cityDrawingCount++;
         }
         
-
+        draw_explosion(testExplosion, pixel_buffer_address);
+        updateExplosion(&testExplosion);
 
 
         //Clear previous graphics.
@@ -715,10 +723,10 @@ void draw_explosion(Explosion explosion, volatile int pixel_buffer_address)
     {
         //Erase the concentric circles from the max radius to the current radius, then redraw
         //The remaining part of the explosion.
-        for (int i = explosion.rf; i > explosion.rc; i--)
+        for (int i = explosion.rf; i >= explosion.rc; i--)
             draw_circle(i, explosion.x0, explosion.y0, 0x0000, pixel_buffer_address);
 
-        for (int i = 0; i <= explosion.rc; i++)
+        for (int i = 0; i < explosion.rc; i++)
         {
             //Depending on the frame buffer, draw the explosion with a different colour.
             //This will give a natural flashing effect to it.
@@ -991,6 +999,30 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 
     return;
 }
+
+
+
+//Initializes an explosion struct.
+void initializeExplosion(Explosion * explosionPtr, int x0, int y0, int rMax, int peakDuration)
+{
+    explosionPtr->frameBufferCounter = 0;
+
+    explosionPtr->increasing = true;
+
+    explosionPtr->peakDuration = peakDuration;
+
+    explosionPtr->rc = 0;
+    explosionPtr->rf = rMax;
+
+    explosionPtr->x0 = x0;
+    explosionPtr->y0 = y0;
+    return;
+}
+
+
+
+
+
 
 //Updates the size of an explosion once every two frames if increasing/decreasing.
 //Will also ensure the explosion remains at its peak for the duration time
