@@ -289,6 +289,8 @@ typedef struct AntiAirRocket AntiAirRocket;
 
 //General Drawing.
 void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_address);
+short int read_pixel(int x, int y, volatile int pixel_buffer_address);
+
 void draw_line(int x0, int y0, int x1, int y1, short int line_color, 
                 volatile int pixel_buffer_address);
 void draw_circle(unsigned int r, int x0, int y0, short int colour, 
@@ -512,6 +514,29 @@ void plot_pixel(int x, int y, short int line_color, volatile int pixel_buffer_ad
             *(short int *)(pixel_buffer_address + (y << 10) + (x << 1)) = line_color;
     return;
 }
+
+//Reads the colour stored at a pixel location if it is in bounds, 
+//or returns black (0) otherwise.
+short int read_pixel(int x, int y, volatile int pixel_buffer_address)
+{
+    if ( (0 <= x) && (x <= XMAX) )
+    {
+        if ( (0 <= y) && ( y <= YMAX) )
+        {
+            return *(short int *)(pixel_buffer_address + (y << 10) + (x << 1));
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+
 
 //Draws a coloured line between two points using Bresenham's Algorithm.
 void draw_line(int x0, int y0, int x1, int y1, short int line_color, 
