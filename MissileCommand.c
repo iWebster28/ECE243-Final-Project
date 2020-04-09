@@ -442,8 +442,8 @@ int main(void)
     double y_target = 239;
     //Max velocities in pixels/sec (Framerate already taken into account in code.)
     //Note: these will just be computed as one max velocity.
-    int x_vel_max = 150; //pos or neg. direction
-    int y_vel_max = 150; 
+    int x_vel_max = 40; //pos or neg. direction
+    int y_vel_max = 40; 
     short int colour = red; //temp
     
     //Round 0: determine how many missiles on screen allowed at a time.
@@ -454,6 +454,9 @@ int main(void)
 
     //Keep track of missile explosions - pass as pointer to clear_missiles
     Explosion missile_explosions[N];
+    for (int i = 0; i < N; i++) {
+        missile_explosions[i].x0 = -1;
+    }
 
     //A char to keep track of if cities have been drawn on both buffers.
     //Ensures they are only drawn on the first two iterations of the game loop,
@@ -462,8 +465,8 @@ int main(void)
 
 
 
-    //Explosion testExplosion;
-    //initializeExplosion(&testExplosion, 40, YMAX, 30, 10);
+    Explosion testExplosion;
+    initializeExplosion(&testExplosion, 40, YMAX, 30, 10);
 
     //The main loop of the program.
     while (1)
@@ -495,13 +498,15 @@ int main(void)
 
 
 
-        //draw_explosion(testExplosion, pixel_buffer_address);
-        //updateExplosion(&testExplosion);
+        draw_explosion(testExplosion, pixel_buffer_address);
+        updateExplosion(&testExplosion);
 
-        // for (int i = 0; i < N; i++) {
-        //     draw_explosion(missile_explosions[i], pixel_buffer_address);
-        //     updateExplosion(&missile_explosions[i]);
-        // }
+        for (int i = 0; i < N; i++) {
+            if (missile_explosions[i].x0 != -1) {
+                draw_explosion(missile_explosions[i], pixel_buffer_address);
+                updateExplosion(&missile_explosions[i]);
+            }
+        }
         
         
 
@@ -516,8 +521,8 @@ int main(void)
         //check if compute_missiles has been called enough times to increment the round
         if (compute_missiles_calls % 5 == 0) { //Every 5 calls to compute_missiles: increment the max missile speed.
             //Just increment speed of missiles
-            x_vel_max += 50;
-            y_vel_max += 50;
+            x_vel_max += 10;
+            y_vel_max += 10;
             compute_missiles_calls = 1;
         }
 
@@ -1319,14 +1324,19 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             if (missile_array[i].destroyed) {
                 //Call Eric's chain-reaction explosion function again.
                 //draw_line(100, 200, 120, 200, blue, pixel_buffer_address);
-                printf("HIT");
+                printf("HIT\n");
                 explosion_sound();
 
                 initializeExplosion(&missile_explosions[i], missile_array[i].x_pos, missile_array[i].y_pos, 30, 10);
 
                 //Print score to console output
-                score++; 
-                printf("Score: %d", score);
+                if (missile_array[i].y_pos > 30) {
+                    score++; 
+                    printf("Score: %d\n", score);
+                } else {
+                    score = 0;
+                    printf("You lost a city!\n");
+                }
             }
 
 
