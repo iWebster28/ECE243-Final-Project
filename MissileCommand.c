@@ -497,17 +497,20 @@ int main(void)
 
         //draw_explosion(testExplosion, pixel_buffer_address);
         //updateExplosion(&testExplosion);
+
+        // for (int i = 0; i < N; i++) {
+        //     draw_explosion(missile_explosions[i], pixel_buffer_address);
+        //     updateExplosion(&missile_explosions[i]);
+        // }
         
-        //Update explosion animations for the enemy missiles that were triggered
-        for (int i = 0; i < N; i++) {
-            updateExplosion(&missile_explosions[i]);
-        }
+        
 
 
         //Clear previous graphics.
 
-        //Erase the old position of all the missiles - FIX.
+        //Erase the old position of all the missiles
         clear_missiles(num_missiles, missile_array, blue, pixel_buffer_address, missile_explosions);
+        //Update explosion animations for the enemy missiles that were triggered
 
         //INCREMENT MISSILE SPEED ------------------------------------------
         //check if compute_missiles has been called enough times to increment the round
@@ -1320,7 +1323,6 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
                 explosion_sound();
 
                 initializeExplosion(&missile_explosions[i], missile_array[i].x_pos, missile_array[i].y_pos, 30, 10);
-                draw_explosion(missile_explosions[i], pixel_buffer_address);
 
                 //Print score to console output
                 score++; 
