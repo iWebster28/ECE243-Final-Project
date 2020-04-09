@@ -303,8 +303,12 @@ struct Explosion
     //This should in effect give a "flashing" appearance to the explosion.
     char frameBufferCounter;
 
-    //How long the explosion remains at its peak radius before decreasing, in seconds.
-    float peakDuration;
+    //How long the explosion remains at its peak radius before decreasing, in multiples of
+    //2 VGA cycles.
+    int peakDuration;
+
+    //A flag to indicate if the explosion is decreasing or increasing in size.
+    bool increasing;
 };
 
 typedef struct Explosion Explosion;
@@ -364,6 +368,7 @@ void mostRecentKeyboardInputs(volatile int * ps2_ctrl_ptr, unsigned char readByt
 void initializeScreenCursor(Cursor * screenCursorPtr);
 void updateCursorMovementDirection(Cursor * screenCursorPtr, unsigned char readBytes[]);
 void updateCursorPosition(Cursor * screenCursorPtr);
+void updateExplosion(Explosion * explosion);
 
 //Miscallaneous functions.
 void swap(int* first, int* second);
@@ -686,26 +691,44 @@ void draw_circle(unsigned int r, int x0, int y0, short int colour,
 
 
 
-//Draws the explosion animation for a specified explosion.
-//Also handles updating variables within the Explosion struct so the animation
-//draws sequentially. The idea here is that the explosion is an "animation" rather than
-//a "game object", so "drawing it" should encapsulate all the functionality related to
-//making the animation work properly.
-void draw_explosion(Explosion * explosion, volatile int pixel_buffer_address)
+//Draws the explosion animation for a specified explosion's current state.
+void draw_explosion(Explosion explosion, volatile int pixel_buffer_address)
 {
-    for (int i = 0; i <= explosion->rc; i++)
+    //Different behaviour if an explosion is increasing or decreasing.
+    if (explosion.increasing == true)
     {
-        //Depending on the frame buffer, draw the explosion with a different colour.
-        //This will give a natural flashing effect to it.
+        //Draw the explosion as concentric circles from the centre to the current radius.
+        for (int i = 0; i <= explosion.rc; i++)
+        {
+            //Depending on the frame buffer, draw the explosion with a different colour.
+            //This will give a natural flashing effect to it.
 
-        if (explosion->frameBufferCounter % 2 == 0)
-            draw_circle(i, explosion->x0, explosion->y0, 0xF780, pixel_buffer_address);
-        else
-            draw_circle(i, explosion->x0, explosion->y0, 0xF380, pixel_buffer_address);
-        
-
+            if (explosion.frameBufferCounter % 2 == 0)
+                draw_circle(i, explosion.x0, explosion.y0, 0xF780, pixel_buffer_address);
+            else
+                draw_circle(i, explosion.x0, explosion.y0, 0xF380, pixel_buffer_address);
+        }
     }
+    else
+    {
+        //Erase the concentric circles from the max radius to the current radius, then redraw
+        //The remaining part of the explosion.
+        for (int i = explosion.rf; i > explosion.rc; i--)
+            draw_circle(i, explosion.x0, explosion.y0, 0x0000, pixel_buffer_address);
 
+        for (int i = 0; i <= explosion.rc; i++)
+        {
+            //Depending on the frame buffer, draw the explosion with a different colour.
+            //This will give a natural flashing effect to it.
+
+            if (explosion.frameBufferCounter % 2 == 0)
+                draw_circle(i, explosion.x0, explosion.y0, 0xF780, pixel_buffer_address);
+            else
+                draw_circle(i, explosion.x0, explosion.y0, 0xF380, pixel_buffer_address);
+        }
+    }
+    
+    return;
 }
 
 
@@ -966,6 +989,49 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 
     return;
 }
+
+//Updates the size of an explosion once every two frames if increasing/decreasing.
+//Will also ensure the explosion remains at its peak for the duration time
+//specified in the Explosion struct.
+void updateExplosion(Explosion * explosion)
+{
+    //Increment frame buffer counter.
+    explosion->frameBufferCounter++;
+
+    //Only update the explosion size / state once every 2 frames.
+    if (explosion->frameBufferCounter % 2 == 0)
+        return;
+
+    //Make the explosion size larger / keep it constant if increasing (decrease duration time
+    //if the explosion does not increase in size).
+    if (explosion->increasing == true)
+    {
+        if (explosion->rc < explosion->rf)
+            explosion->rc++;
+        else
+        {
+            //The explosion is at its peak.
+            //Keep it there for peakDuration number of 2-frame cycles. 
+
+            if (explosion->peakDuration > 0)
+                explosion->peakDuration--;
+            else
+                explosion->increasing = false;
+        }
+    }
+    else 
+    {
+        //Make the explosion size smaller if decreasing.
+        if (explosion->rc > 0)
+            explosion->rc--;
+    }
+
+    return;
+}
+
+
+
+
 
 //This function creates multiple missiles according to the parameters it is fed.
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address, bool adding_missiles) {
