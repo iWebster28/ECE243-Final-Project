@@ -23,6 +23,9 @@ int score = 0;
 
 #define CITY_TEXTURE_SIZE 1500      //The number of pixels in each city texture.
 #define CITY_TEXTURE_WIDTH 50       //The width of each city texture.
+#define CENTER_CITY CITY_TEXTURE_WIDTH/2
+#define CITY1_START_X 15
+#define CENTER_SPACING 60
 
 #define PS2INPUTBYTES 12    //The number of bytes from the PS2 input processed at a time.
                             //Stored PS2 input bytes are refreshed each game cycle.
@@ -316,6 +319,7 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
 int determine_num_missiles(int round_num, int *spawn_threshold); //Returns max num_missiles allowed on screen at a time per round#. ALSO updates spawn threshold.
 void add_missiles(int num_missiles, Missile *missile_array, short int *colour, volatile int pixel_buffer_address); //Add more missiles to the missile_array for the current round. Make sure to check entries only with in_bound = 2. Then set to 1 after!
 bool missiles_on_screen_check(int *num_missiles, Missile *missile_array, int *spawn_threshold); //Check how many missiles are on screen right now. Return true if within threshold to draw more. Else, (i.e. still a lot on screen), return false.
+bool enemy_missile_is_hit(Missile *missile, volatile int pixel_buffer_address); 
 
 //Diagnostic Functions
 bool inBounds(int x, int y); //Returns bool
@@ -475,6 +479,9 @@ int main(void)
         }
 
         //-------------------------------------
+
+        //---Draw the test explosion here----
+        //draw_line(0, 100, 319, 100, blue, pixel_buffer_address);
 
         //Draw new missile positions
         draw_missiles_and_update(missile_array, num_missiles, pixel_buffer_address); //pass in arrays
@@ -912,7 +919,7 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 //This function creates multiple missiles according to the parameters it is fed.
 void compute_missiles(Missile *missile_array, int num_missiles, double x_target, double y_target, int x_vel_max, int y_vel_max, short int colour, volatile int pixel_buffer_address, bool adding_missiles) {
    
-    int y_vel_min = 100;
+    int y_vel_min = 100; //this is actually just the weighted component minimum. (x and y make up total velocity)
 
     //Colours array
     //short int colours[3] = {red, blue, green}; //{0xFFFF, 0xF800, 0x07E0, 0x001F, 0x5890, 0x1240, 0x2510, 0xFFAB};
@@ -927,13 +934,15 @@ void compute_missiles(Missile *missile_array, int num_missiles, double x_target,
     for (int i = 0; i < num_missiles; i++) {
         //Choosing x and y target randomly (i.e. ignore the incoming values)
         //Divide screen width into 1/6ths of XMAX, because want center of each of the 5 cities.
-        x_target = (XMAX/6)*((rand() % 5) + 1); //generate rand multiplier between 1 and 5
+        //x_target = (XMAX/6)*((rand() % 5) + 1); //generate rand multiplier between 1 and 5
+
+        x_target = CITY1_START_X + CENTER_CITY + CENTER_SPACING*((rand() % 4) + 1); //Target one of the 5 cities.
 
         //if adding_missielse == true, then we just want to create new missiles at array indices at which
         //the missiles have gone out of bounds!
         //If adding_missiles == false - we are creating new missiles at EVERY indice in the array because a new wave has started.
         
-        if (adding_missiles == false || (adding_missiles == true && missile_array[i].in_bound == 2 && missile_array[i].num_redraws_at_bound == 2)) {
+        if (adding_missiles == false || (adding_missiles == true && (missile_array[i].in_bound == 2 && missile_array[i].num_redraws_at_bound == 2) || missile_array[i].destroyed)) {
             //Initialize all previous position data to 0
             missile_array[i].destroyed = false;
             missile_array[i].num_redraws_at_bound = 0;
@@ -986,33 +995,40 @@ void draw_missiles_and_update(Missile *missile_array, int num_missiles, volatile
     //Draw all the missiles in the missile_array
     for (int i = 0; i < num_missiles; i++) {
         //missile_array[i].x_pos - SIZE_MISSILE, missile_array[i].y_pos - SIZE_MISSILE)
-        if (inBounds(missile_array[i].x_pos - 1, missile_array[i].y_pos - 1)) {
-            draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
+        if (inBounds(missile_array[i].x_pos - 1, missile_array[i].y_pos - 1) && !missile_array[i].destroyed) { //CHECKKKKKK
             
-            // //Update positions
-            missile_array[i].x_old2 = missile_array[i].x_old;
-            missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
-            missile_array[i].x_pos += missile_array[i].x_vel; //Update positions correspondingly
+            if (enemy_missile_is_hit(&missile_array[i], pixel_buffer_address)) {
+                //Then clear this missile
+                missile_array[i].destroyed = true; //this will be used in clear_missiles
+  
+            } else { //Missile is not hit: so keep drawing.
+                draw_enemy_missile(missile_array[i].x_pos, missile_array[i].y_pos, missile_array[i].colour, pixel_buffer_address);
 
-            missile_array[i].y_old2 = missile_array[i].y_old;
-            missile_array[i].y_old = missile_array[i].y_pos;
-            missile_array[i].y_pos += missile_array[i].y_vel;
+                // //Update positions
+                missile_array[i].x_old2 = missile_array[i].x_old;
+                missile_array[i].x_old = missile_array[i].x_pos; //Set as previous position
+                missile_array[i].x_pos += missile_array[i].x_vel; //Update positions correspondingly
 
-            //Bounds-clamping - for newly computed positions.
-            if (missile_array[i].x_pos <= 0) {
-                //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
-                missile_array[i].x_pos = (double) -1;
-                missile_array[i].in_bound = 0; //to notify clear_missiles on next while loop iteration in main that the missile is now out of bounds
-            }
-            if (missile_array[i].x_pos >= (double) XMAX) {
-                 //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
-                missile_array[i].x_pos = (double) XMAX + 1;
-                missile_array[i].in_bound = 0;
-            }
-            if (missile_array[i].y_pos >= YMAX) {
-                 //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
-                missile_array[i].y_pos = (double) YMAX + 1;
-                missile_array[i].in_bound = 0;
+                missile_array[i].y_old2 = missile_array[i].y_old;
+                missile_array[i].y_old = missile_array[i].y_pos;
+                missile_array[i].y_pos += missile_array[i].y_vel;
+
+                //Bounds-clamping - for newly computed positions.
+                if (missile_array[i].x_pos <= 0) {
+                    //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
+                    missile_array[i].x_pos = (double) -1;
+                    missile_array[i].in_bound = 0; //to notify clear_missiles on next while loop iteration in main that the missile is now out of bounds
+                }
+                if (missile_array[i].x_pos >= (double) XMAX) {
+                    //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
+                    missile_array[i].x_pos = (double) XMAX + 1;
+                    missile_array[i].in_bound = 0;
+                }
+                if (missile_array[i].y_pos >= YMAX) {
+                    //printf("Next pos will be out of bounds: x,y = %f, %f\n", missile_array[i].x_pos, missile_array[i].y_pos);
+                    missile_array[i].y_pos = (double) YMAX + 1;
+                    missile_array[i].in_bound = 0;
+                }
             }
 
         } else { //not in bounds.
@@ -1064,6 +1080,11 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             missile_array[i].x_pos += SIZE_MISSILE;
             missile_array[i].x_pos += SIZE_MISSILE;
             missile_array[i].num_redraws_at_bound++; //once equals 2, then can add more missiles.
+            if (missile_array[i].destroyed) {
+                //Call Eric's chain-reaction explosion function again.
+                //draw_line(100, 200, 120, 200, blue, pixel_buffer_address);
+                //print("HIT");
+            }
 
 
         } else if (missile_array[i].in_bound == 1) { //if in bounds
@@ -1075,6 +1096,37 @@ void clear_missiles(int num_missiles, Missile *missile_array, short int colour, 
             }
         }
     }
+}
+
+//Checks to see if the enemy missile was hit or not. (i.e. one of the pixels at it's location is not the colour_missile)
+bool enemy_missile_is_hit(Missile *missile, volatile int pixel_buffer_address) {
+
+    //If the enemy missile was hit, then an explosion would have been draw ONTOP of this missile.
+    //Therefore, at least one of the pixels at the location of this missile would be NOT the colour of the original missile (RED)
+
+    //For every pixel belonging to the current missile: read the pixel colours.
+    //If at least 1 pixel is not the same colour as the original missile colour (RED), then return true. Else, false.
+    int x0 = (*missile).x_pos;
+    int y0 = (*missile).y_pos;
+    short int curr_pixel_colour;
+    short int cursor_colour = 0x07E0;
+
+    for (int x = x0; (x < x0 + SIZE_MISSILE); x++) {
+        for (int y = y0; (y < y0 + SIZE_MISSILE); y++) {
+            if (x <= 0 || x >= XMAX || y <= 0 || y >= YMAX) { //was <= >= <= >=
+                //if out of bounds, don't draw pixel. // WILL HAVE TO CHANGE CORRESPONDING TO BOX SIZE.
+            } else {
+                curr_pixel_colour = read_pixel(x, y, pixel_buffer_address);
+                if ((curr_pixel_colour != (*missile).colour) && (curr_pixel_colour != black) && (curr_pixel_colour != cursor_colour)) {
+                    //If current pixel is unexpected (i.e. not black, red, or green), then the missile was hit by a defensive missile:
+                    return true;
+                }
+            } 
+        }
+    }
+    
+    return false;
+
 }
 
 
