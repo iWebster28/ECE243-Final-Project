@@ -376,7 +376,7 @@ void updateCursorPosition(Cursor * screenCursorPtr);
 void initializeExplosion(Explosion * explosionPtr, int x0, int y0, int rMax, int peakDuration);
 void updateExplosion(Explosion * explosion);
 
-AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[]);
+Explosion initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[]);
 
 //Miscallaneous functions.
 void beep();
@@ -459,8 +459,12 @@ int main(void)
 
 
 
-    //Explosion testExplosion;
-    //initializeExplosion(&testExplosion, 40, YMAX, 30, 10);
+    Explosion testExplosion;
+    //initializeExplosion(&testExplosion, 0, 0, 0, 0);
+    initializeExplosion(&testExplosion, 100, 100, 15, 10);
+    bool isExplosion = false;
+
+    AntiAirRocket * firedMissile = NULL;
 
     //The main loop of the program.
     while (1)
@@ -490,7 +494,7 @@ int main(void)
         }
         
 
-
+        
 
         //draw_explosion(testExplosion, pixel_buffer_address);
         //updateExplosion(&testExplosion);
@@ -544,8 +548,38 @@ int main(void)
         mostRecentKeyboardInputs(ps2_ctrl_ptr, readBytes);
 
         //Process the input to update game variables.
+
+        
+        if (isExplosion == false)
+            testExplosion = initializeAntiAirRocket(screenCursor, readBytes);
+
+        if (firedMissile != NULL)
+        {
+            //If a missile was fired, start a new explosion at the cursor location.
+            initializeExplosion(&testExplosion, firedMissile->xFinal, firedMissile->yFinal, 
+                                15, 10);
+        }
+        */
+        
+        
+
+        draw_explosion(testExplosion, pixel_buffer_address);
+        updateExplosion(&testExplosion);
+
+/*
+        if ((testExplosion.rc == 0) && (testExplosion.increasing == false))
+        {
+                free(firedMissile);
+                firedMissile = NULL;
+        }
+*/
+
+
         updateCursorMovementDirection(&screenCursor, readBytes);
         updateCursorPosition(&screenCursor);
+
+
+
 
         //Draw new graphics.
         draw_cursor(screenCursor, pixel_buffer_address);
@@ -1006,8 +1040,11 @@ void updateCursorPosition(Cursor * screenCursorPtr)
 
     if (screenCursorPtr->deltay == 1)       //Moving down.
     {
-        //Only move down if the cursor will not move past the bottom of the screen.
-        if (screenCursorPtr->y < YMAX - 2)
+        //Only move down if missiles fired at the cursor will not
+        //end up destroying the tops of cities.
+        //Cities start at YMAX, have a height of 30, and the explosion has a radius of 15 pixels.
+        //Therefore bottom of cursor cannot be above y = YMAX - 30 - 15;
+        if (screenCursorPtr->y < YMAX - 47)
             screenCursorPtr->y = screenCursorPtr->y + 1;
     }
 
@@ -1079,16 +1116,20 @@ void updateExplosion(Explosion * explosion)
 
 
 
-//Creates a new AntiAirRocket if the space bar was pressed.
-AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[])
+//Creates a new Explosion if the space bar was pressed.
+Explosion initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[])
 {
+
+    Explosion newExplosion;
+    initializeExplosion(&newExplosion, 0, 0, 0, 0);
     //Check if the space bar was pressed.
     for (int i = PS2INPUTBYTES - 1; i >=0; i--)
     {
         if (readBytes[i] == 0x29)
         {
+            /*
             AntiAirRocket * newAntiAir = (AntiAirRocket *) malloc( sizeof(AntiAirRocket) );
-            newAntiAir->colour == 0xF280;
+            newAntiAir->colour = 0xF280;
 
             //Determine the xStart location for the rocket based off of the centre of the
             //closest city.
@@ -1130,12 +1171,18 @@ AntiAirRocket * initializeAntiAirRocket(Cursor screenCursor, unsigned char readB
             newAntiAir->yOld = newAntiAir->y;
 
 
-            return newAntiAir
+            return newAntiAir;
+            */
+
+
+           
+           initializeExplosion(&newExplosion, screenCursor.x, screenCursor.y, 15, 10);
+           return newExplosion;
         }
     }
             
-    //Space was not pressed -- return NULL.
-    return NULL;
+    //Space was not pressed -- return an empty explosion.
+    return newExplosion;
 }
 
 
