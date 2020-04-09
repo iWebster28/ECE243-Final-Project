@@ -498,8 +498,8 @@ int main(void)
 
 
 
-        draw_explosion(testExplosion, pixel_buffer_address);
-        updateExplosion(&testExplosion);
+        //draw_explosion(testExplosion, pixel_buffer_address);
+        //updateExplosion(&testExplosion);
 
         for (int i = 0; i < N; i++) {
             if (missile_explosions[i].x0 != -1) {
