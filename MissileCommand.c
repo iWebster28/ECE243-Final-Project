@@ -499,22 +499,16 @@ int main(void)
             cityDrawingCount++;
         }
         
-
-        
-
         //draw_explosion(testExplosion, pixel_buffer_address);
         //updateExplosion(&testExplosion);
 
-        for (int i = 0; i < N; i++) {
+        for (int i = 0; i < N; i++) { //drawing explosions if a missile from missile_array was hit
             if (missile_explosions[i].x0 != -1) {
                 draw_explosion(missile_explosions[i], pixel_buffer_address);
                 updateExplosion(&missile_explosions[i]);
             }
         }
         
-        
-
-
         //Clear previous graphics.
 
         //Erase the old position of all the missiles
@@ -1084,10 +1078,6 @@ void initializeExplosion(Explosion * explosionPtr, int x0, int y0, int rMax, int
 }
 
 
-
-
-
-
 //Updates the size of an explosion once every two frames if increasing/decreasing.
 //Will also ensure the explosion remains at its peak for the duration time
 //specified in the Explosion struct.
@@ -1139,56 +1129,7 @@ Explosion initializeAntiAirRocket(Cursor screenCursor, unsigned char readBytes[]
     for (int i = PS2INPUTBYTES - 1; i >=0; i--)
     {
         if (readBytes[i] == 0x29)
-        {
-            /*
-            AntiAirRocket * newAntiAir = (AntiAirRocket *) malloc( sizeof(AntiAirRocket) );
-            newAntiAir->colour = 0xF280;
-
-            //Determine the xStart location for the rocket based off of the centre of the
-            //closest city.
-            if (screenCursor.x <= 70)
-            {
-                //Fire from SF.
-                newAntiAir->xStart = 40;
-            }
-            else if (screenCursor.x <= 130)
-            {
-                //Fire from Seattle.
-                newAntiAir->xStart = 100;
-            }
-            else if (screenCursor.x <= 190)
-            {
-                //Fire from Chicago.
-                newAntiAir->xStart = 160;
-            }
-            else if (screenCursor.x <= 250)
-            {
-                //Fire from Toronto.
-                newAntiAir->xStart = 220;
-            }
-            else
-            {
-                //Fire from New York.
-                newAntiAir->xStart = 280;
-            }
-            
-            newAntiAir->yStart = YMAX;
-
-            newAntiAir->xFinal = screenCursor.x;
-            newAntiAir->yFinal = screenCursor.y;
-
-            newAntiAir->x = newAntiAir->xStart;
-            newAntiAir->y = newAntiAir->yStart;
-            
-            newAntiAir->xOld = newAntiAir->x;
-            newAntiAir->yOld = newAntiAir->y;
-
-
-            return newAntiAir;
-            */
-
-
-           
+        {         
            initializeExplosion(&newExplosion, screenCursor.x, screenCursor.y, 15, 10);
            return newExplosion;
         }
@@ -1465,31 +1406,6 @@ int determine_num_missiles(int round_num, int *spawn_threshold) { //Returns max 
 }
 
 
-//This is moved to compute_missiles. - REDUNDANT
-void add_missiles(int num_missiles, Missile *missile_array, short int *colour, volatile int pixel_buffer_address){ 
-    //Add more missiles to the missile_array for the current round. Make sure to check entries only with in_bound = 2. 
-    //Then set to 1 after!
-
-    //This function should be called whenever missiles_on_screen_check returns true. (checks if num onscreen missiles is == certain 
-    //threshold for spawning more)
-    //This function should overwrite the missile entries that went out of bounds, for the current num_missiles allowed on screen for the curent round.
-
-    //Depending on the round, some or all of the slots in the missile_array will be used.
-
-    for (int i = 0; i < num_missiles; i++) {
-        //check which missiles are not in bounds
-        //replace these missiles with new ones! 
-        //Use code from compute_missiles again. 
-        //Could maybe make a subfunction to minimize redunadant code
-        if (missile_array[i].in_bound == 2) {
-            //Generate a new one!
-        }
-
-    }
-
-}
-
-
 bool missiles_on_screen_check(int *num_missiles, Missile *missile_array, int *spawn_threshold) { 
     //Check how many missiles are on screen right now. 
     //Return true if within threshold to draw more. Else, (i.e. still a lot on screen), return false.
@@ -1538,12 +1454,6 @@ void notInFunction(volatile int pixel_buffer_address, int led_to_light) {
 }
 
 
-
-
-
-
-
-
 //Miscallaneous functions.
 
 //Beep function
@@ -1566,7 +1476,7 @@ void beep() {
 	}
 }
 
-//Explosion sound
+//Explosion sound - Non-functional
 void explosion_sound() {
     int num_beeps = 10;
     int delay = 1000;
